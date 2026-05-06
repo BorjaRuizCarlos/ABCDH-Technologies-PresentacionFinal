@@ -23,6 +23,7 @@ import type { ApiProject, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../
 import { useAuth } from '../context/AuthContext';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
+import Timeline from '../components/Timeline';
 import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace';
 import { getProjectStatusApiValue, getProjectStatusBadge, getProjectStatusLabel, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
 import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
@@ -415,7 +416,7 @@ export default function ProjectDetail() {
   const initialQueryTaskId = Number(searchParams.get('task'));
   const normalizedInitialTaskId = Number.isNaN(initialQueryTaskId) || initialQueryTaskId <= 0 ? null : initialQueryTaskId;
 
-  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
+  const [activeTab, setActiveTab] = useState<'resumen' | 'tareas' | 'timeline' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
     if (initialQueryTab === 'tareas') return 'tareas';
     if (initialQueryTab === 'configuracion') return 'configuracion';
     return 'resumen';
@@ -430,6 +431,11 @@ export default function ProjectDetail() {
     if (tab === 'tareas') {
       setActiveTab('tareas');
       setInitialTaskId(normalizedTaskId);
+      return;
+    }
+
+    if (tab === 'timeline') {
+      setActiveTab('timeline');
       return;
     }
 
@@ -512,6 +518,7 @@ export default function ProjectDetail() {
         tabs={[
           { id: 'resumen', label: 'Overview' },
           { id: 'tareas', label: 'Tareas', count: (allProjectTasks ?? []).length },
+          { id: 'timeline', label: 'Timeline' },
           { id: 'code-review', label: 'Code Review' },
           { id: 'repositorios', label: 'Repositorios' },
           { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
@@ -641,6 +648,7 @@ export default function ProjectDetail() {
               }))}
               canCreateTasks={canManageTasks}
               canCreateBoards={canManageTasks}
+              canCreateSprints={(capabilities.isProjectManager || (currentUserAccount?.system_role ?? 0) === 1)}
               canEditTasks={canManageTasks}
               canDeleteTasks={canManageTasks}
               initialTaskId={initialTaskId}
@@ -651,6 +659,12 @@ export default function ProjectDetail() {
                 setSearchParams(nextParams, { replace: true });
               }}
             />
+          </div>
+        )}
+
+        {activeTab === 'timeline' && (
+          <div className="flex-1 min-h-0 flex flex-col">
+            <Timeline projectId={projectId} canCreateSprints={(capabilities.isProjectManager || (currentUserAccount?.system_role ?? 0) === 1)} />
           </div>
         )}
 

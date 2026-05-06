@@ -74,7 +74,9 @@ export interface ApiTask {
   created_by: number | null;
   assigned_to: number | null;
   created_at: string;
+  start_date?: string | null; // ISO date
   due_date: string | null;   // ISO date
+  sprint?: number | null;
   completed_at: string | null;
 }
 

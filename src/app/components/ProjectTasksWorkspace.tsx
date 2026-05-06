@@ -30,9 +30,11 @@ import { useApiBoards, useApiTaskAssignments, useApiTasks, useApiTaskWarnings } 
 import { tasksService } from '../../services';
 import type { ApiTask, ApiTaskPriority, ApiTaskStatus, ApiTaskAssignment } from '../../services';
 import { TaskDetailPanel, TASK_REOPEN_ID_STORAGE_KEY, TASK_REOPEN_PATH_STORAGE_KEY } from './TaskDetailPanel';
+import CreateSprintModal from './CreateSprintModal';
 import { TaskAssigneePicker } from './TaskAssigneePicker';
 import { DatePickerField } from './DatePickerField';
 import { useAuth } from '../context/AuthContext';
+import { sprintsService } from '../../services';
 import { formatProjectDate } from '../utils/projectDates';
 
 interface ProjectTasksWorkspaceProps {
@@ -43,6 +45,7 @@ interface ProjectTasksWorkspaceProps {
   canCreateBoards: boolean;
   canEditTasks: boolean;
   canDeleteTasks: boolean;
+  canCreateSprints?: boolean;
   initialTaskId?: number | null;
   onInitialTaskHandled?: (taskId: number) => void;
 }
@@ -216,6 +219,7 @@ export function ProjectTasksWorkspace({
   canCreateBoards,
   canEditTasks,
   canDeleteTasks,
+  canCreateSprints = false,
   initialTaskId = null,
   onInitialTaskHandled,
 }: ProjectTasksWorkspaceProps) {
@@ -245,6 +249,7 @@ export function ProjectTasksWorkspace({
 
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [creatingTask, setCreatingTask] = useState(false);
+  const [showCreateSprint, setShowCreateSprint] = useState(false);
   const [formTitle, setFormTitle] = useState('');
   const [formDesc, setFormDesc] = useState('');
   const [formStatus, setFormStatus] = useState<number | ''>('');
@@ -257,6 +262,14 @@ export function ProjectTasksWorkspace({
   const [boardName, setBoardName] = useState('');
   const [boardDescription, setBoardDescription] = useState('');
   const [pendingInitialTaskId, setPendingInitialTaskId] = useState<number | null>(initialTaskId);
+  const [sprints, setSprints] = useState<Array<{ id_sprint: number; name: string }>>([]);
+  const [sprintFilter, setSprintFilter] = useState<number | 'all'>('all');
+
+  function sprintColorFromId(id?: number | null) {
+    if (!id) return '#94a3b8';
+    const hue = (id * 47) % 360;
+    return `hsl(${hue} 70% 40%)`;
+  }
 
   useEffect(() => {
     const storedTaskId = Number(sessionStorage.getItem(TASK_REOPEN_ID_STORAGE_KEY));
@@ -320,8 +333,12 @@ export function ProjectTasksWorkspace({
       list = list.filter((t) => t.title.toLowerCase().includes(term));
     }
 
+    if (sprintFilter !== 'all') {
+      list = list.filter((t) => t.sprint === sprintFilter);
+    }
+
     return list;
-  }, [tasks, priorityFilter, searchTerm]);
+  }, [tasks, priorityFilter, searchTerm, sprintFilter]);
 
   const statusByName = useMemo(() => {
     const map = new Map<string, ApiTaskStatus>();
@@ -396,6 +413,19 @@ export function ProjectTasksWorkspace({
     onInitialTaskHandled?.(pendingInitialTaskId);
     setPendingInitialTaskId(null);
   }, [pendingInitialTaskId, tasks, onInitialTaskHandled]);
+
+  const fetchSprints = () => {
+    let cancelled = false;
+    sprintsService.list(projectId)
+      .then((list) => {
+        if (cancelled) return;
+        setSprints((list as any).map((s: any) => ({ id_sprint: s.id_sprint, name: s.name })) ?? []);
+      })
+      .catch(() => { if (!cancelled) setSprints([]); });
+    return () => { cancelled = true; };
+  };
+
+  useEffect(() => { const cancel = fetchSprints(); return cancel; }, [projectId]);
 
   const handleDragStart = (event: { active: { id: string | number } }) => {
     setActiveDragId(Number(event.active.id));
@@ -702,13 +732,24 @@ export function ProjectTasksWorkspace({
           </div>
 
           {canCreateTasks && (
-            <button
-              onClick={() => setShowTaskModal(true)}
-              disabled={!selectedBoardId}
-              className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <Plus className="w-3.5 h-3.5" /> Nueva historia
-            </button>
+            <>
+              <button
+                onClick={() => setShowTaskModal(true)}
+                disabled={!selectedBoardId}
+                className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Plus className="w-3.5 h-3.5" /> Nueva historia
+              </button>
+              {/** Sprint creation button: only when allowed (prop) */}
+              {canCreateSprints && (
+                <button
+                  onClick={() => setShowCreateSprint(true)}
+                  className="h-7 px-3 bg-card border border-border rounded-[3px] text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-accent/40 ml-2"
+                >
+                  Crear Sprint
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -734,6 +775,18 @@ export function ProjectTasksWorkspace({
                 {p.name}
               </button>
             ))}
+          </div>
+        )}
+
+        {sprints.length > 0 && (
+          <div>
+            <label className="block text-[10px] text-muted-foreground mb-1">Sprint</label>
+            <select value={sprintFilter} onChange={(e) => setSprintFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))} className="h-7 bg-surface-secondary border border-border rounded-[3px] px-2 text-[11px] mr-2">
+              <option value="all">Todos</option>
+              {sprints.map((s) => (
+                <option key={s.id_sprint} value={s.id_sprint}>{s.name}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -835,7 +888,12 @@ export function ProjectTasksWorkspace({
               <col className="w-[30%]" />
               <col className="w-[15%]" />
               <col className="w-[15%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
+              <col className="w-[12%]" />
               <col className="w-[14%]" />
+              <col className="w-[8%]" />
               <col className="w-[14%]" />
               <col className="w-[12%]" />
             </colgroup>
@@ -846,6 +904,7 @@ export function ProjectTasksWorkspace({
                 <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Prioridad</th>
                 <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Asignado</th>
                 <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Creador</th>
+                                <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Sprint</th>
                 <th className="text-left py-2 px-3 text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Vence</th>
               </tr>
             </thead>
@@ -908,6 +967,15 @@ export function ProjectTasksWorkspace({
                       {task.created_by ? (userMap.get(task.created_by) ?? `#${task.created_by}`) : '—'}
                     </td>
                     <td className="py-2 px-3 text-[11px] text-muted-foreground">{task.due_date ?? '—'}</td>
+                                      <td className="py-2 px-3">
+                                        {task.sprint ? (
+                                          <span className="inline-flex items-center gap-2 px-2 py-0.5 rounded-full text-[11px] font-medium text-white" style={{ background: sprintColorFromId(task.sprint) }}>
+                                            {(sprints.find((s) => s.id_sprint === task.sprint)?.name) ?? `Sprint #${task.sprint}`}
+                                          </span>
+                                        ) : (
+                                          <span className="text-[11px] text-muted-foreground">—</span>
+                                        )}
+                                      </td>
                   </tr>
                 );
               })}
@@ -1026,6 +1094,10 @@ export function ProjectTasksWorkspace({
             </form>
           </div>
         </div>
+      )}
+
+      {showCreateSprint && (
+        <CreateSprintModal open={showCreateSprint} onOpenChange={setShowCreateSprint} projectId={projectId} onCreated={() => { fetchSprints(); }} />
       )}
 
       {showBoardModal && (

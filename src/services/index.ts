@@ -4,6 +4,7 @@ export { authService } from './auth.service';
 export { githubService } from './github.service';
 export { projectsService } from './projects.service';
 export { tasksService } from './tasks.service';
+export { sprintsService } from './sprints.service';
 export { usersService } from './users.service';
 export type * from './types';
 
