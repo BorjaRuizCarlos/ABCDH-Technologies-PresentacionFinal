@@ -35,3 +35,6 @@ CLAUDE.local.md
 
 # pre-redesign visual audit captures
 docs/audit/screenshots/
+
+.claude/
+.playwright-mcp/
