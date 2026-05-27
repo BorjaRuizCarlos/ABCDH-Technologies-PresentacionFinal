@@ -25,3 +25,13 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# claude local context (credentials, etc.) — NOT committed
+CLAUDE.local.md
+.claude/local/
+
+# claude code MCP servers (local-only; uncomment to share with team)
+.mcp.json
+
+# pre-redesign visual audit captures
+docs/audit/screenshots/
