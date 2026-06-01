@@ -535,13 +535,18 @@ export function ProjectTasksWorkspace({
     }
     if (!targetColumnId || draggedTask.board_column === targetColumnId) return;
     const targetColumn = (columns ?? []).find((column) => column.id_column === targetColumnId);
+    const targetIsFinal =
+      targetColumn?.is_final === true
+      || /^(done|completad[ao]|finalizad[ao])$/i.test((targetColumn?.name ?? '').trim());
     try {
       await tasksService.update(draggedTask.id_task, {
         board_column: targetColumnId,
-        completed_at: targetColumn?.is_final ? (draggedTask.completed_at ?? new Date().toISOString()) : null,
+        completed_at: targetIsFinal
+          ? (draggedTask.completed_at ?? new Date().toISOString())
+          : null,
       });
       refetchTasks();
-      toast.success('Tarea movida.');
+      toast.success(targetIsFinal ? 'Tarea completada.' : 'Tarea movida.');
     } catch {
       toast.error('No se pudo mover la tarea.');
     }

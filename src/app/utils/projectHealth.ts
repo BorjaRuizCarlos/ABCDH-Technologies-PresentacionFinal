@@ -14,7 +14,7 @@ const ELAPSED_THRESHOLD = 0.75;
 
 export function computeProjectProgress(
   projectId: number,
-  tasks: Array<Pick<ApiTask, 'board' | 'completed_at'>>,
+  tasks: Array<Pick<ApiTask, 'project' | 'board' | 'completed_at'>>,
   boards: Array<Pick<ApiBoard, 'id_board' | 'project'>>,
 ): ProjectProgress {
   const projectBoardIds = new Set(
@@ -24,7 +24,9 @@ export function computeProjectProgress(
   let total = 0;
   let completed = 0;
   for (const task of tasks) {
-    if (!projectBoardIds.has(task.board ?? 0)) continue;
+    const belongs = task.project === projectId
+      || (task.board != null && projectBoardIds.has(task.board));
+    if (!belongs) continue;
     total += 1;
     if (task.completed_at) completed += 1;
   }

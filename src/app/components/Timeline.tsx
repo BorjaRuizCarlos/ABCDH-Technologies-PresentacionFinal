@@ -82,8 +82,8 @@ export function Timeline({ projectId, projectEndDate }: { projectId: number; pro
   today.setHours(0, 0, 0, 0);
   const totalDays = range?.totalDays ?? 0;
   const todayIndex = range ? daysBetween(range.min, today) : -1;
-  const showToday = range ? todayIndex >= 0 && todayIndex < totalDays : false;
-  const todayPct = showToday ? ((todayIndex + 0.5) / totalDays) * 100 : 0;
+  const showToday = range ? todayIndex >= 0 && todayIndex < range.totalDays : false;
+  const todayPct = showToday && range ? ((todayIndex + 0.5) / range.totalDays) * 100 : 0;
 
   if (loading) {
     return (
