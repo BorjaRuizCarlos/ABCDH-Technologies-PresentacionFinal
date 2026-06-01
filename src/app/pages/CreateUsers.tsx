@@ -147,9 +147,22 @@ export default function CreateUsers() {
       setShowCreateModal(false);
       await loadAllUsers();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error al crear usuario';
       console.error('[CreateUsers] Error:', err);
-      toast.error(msg);
+      if (err instanceof Error && 'body' in err) {
+        const body = (err as any).body as Record<string, string | string[]>;
+        if (body?.email) {
+          const emailMsg = Array.isArray(body.email) ? body.email[0] : body.email;
+          toast.error(`Correo duplicado: ${emailMsg}`);
+        } else if (body?.username) {
+          const userMsg = Array.isArray(body.username) ? body.username[0] : body.username;
+          toast.error(`Usuario duplicado: ${userMsg}`);
+        } else {
+          const msg = err.message || 'Error al crear usuario';
+          toast.error(msg);
+        }
+      } else {
+        toast.error(err instanceof Error ? err.message : 'Error al crear usuario');
+      }
     } finally {
       setLoading(false);
     }
@@ -165,6 +178,11 @@ export default function CreateUsers() {
 
     if (currentUser?.id === String(editingUser.id)) {
       toast.error('No puedes editar tu propia cuenta');
+      return;
+    }
+
+    if (editingUser.role === 1) {
+      toast.error('No puedes modificar cuentas de administrador');
       return;
     }
 
@@ -197,6 +215,12 @@ export default function CreateUsers() {
   const handleDelete = async (userId: number) => {
     if (currentUser?.id === String(userId)) {
       toast.error('No puedes eliminar tu propia cuenta');
+      return;
+    }
+
+    const target = allUsers.find((u) => u.id_user === userId);
+    if (target?.system_role === 1) {
+      toast.error('No puedes eliminar cuentas de administrador');
       return;
     }
 
@@ -437,6 +461,7 @@ export default function CreateUsers() {
             <div className="users-scroll space-y-2 pr-1">
               {paginatedUsers.map((user) => {
                 const isCurrentUser = currentUser?.id === String(user.id_user);
+              const isTargetAdmin = user.system_role === 1;
               const isEditing = editingUser?.id === user.id_user;
 
               return (
@@ -527,7 +552,7 @@ export default function CreateUsers() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1 ml-3 flex-shrink-0">
-                        {!isCurrentUser && (
+                        {!isCurrentUser && !isTargetAdmin && (
                           <>
                             <button
                               onClick={() => setEditingUser({

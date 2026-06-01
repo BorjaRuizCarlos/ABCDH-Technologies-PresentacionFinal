@@ -1,34 +1,20 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useMemo } from 'react';
 import { useNavigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { User, Mail, Shield, Moon, Sun, Lock, Loader2, KeyRound, X } from 'lucide-react';
-import { toast } from 'sonner';
+import { User, Mail, Shield, Moon, Sun } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useApiProjectMembers, useApiProjects } from '../hooks/useProjectData';
 import { StatusBadge } from '../components/StatusBadge';
 import { GitHubConnectSection } from '../components/GitHubConnectSection';
-import { usersService } from '../../services';
 import { getUserRoleLabel } from '../utils/roles';
 import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusLabel, shouldShowInGenericProjectDisplays } from '../utils/projectStatus';
 import { formatProjectDate, getProjectDaysLabel } from '../utils/projectDates';
 
 export default function Profile() {
   const navigate = useNavigate();
-  const { user, syncUser } = useAuth();
+  const { user } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [showSecurityModal, setShowSecurityModal] = useState(false);
-  const [securitySaving, setSecuritySaving] = useState(false);
-  const [formData, setFormData] = useState({
-    name: user?.name || '',
-    email: user?.email || '',
-  });
-  const [passwordData, setPasswordData] = useState({
-    password: '',
-    confirmPassword: '',
-  });
 
   const userId = Number(user?.id ?? 0);
   const { data: projects, loading: loadingProjects } = useApiProjects();
@@ -42,86 +28,8 @@ export default function Profile() {
     [visibleProjects],
   );
   const profileProjects = genericProjects.slice(0, 6);
-  useEffect(() => {
-    setFormData({
-      name: user?.name || '',
-      email: user?.email || '',
-    });
-  }, [user?.name, user?.email]);
 
   const roleLabel = useMemo(() => (user ? getUserRoleLabel(user.role) : 'Usuario'), [user]);
-
-  const resetEditingState = () => {
-    setFormData({
-      name: user?.name || '',
-      email: user?.email || '',
-    });
-    setEditing(false);
-  };
-
-  const handleSave = async () => {
-    if (!userId) return;
-
-    const trimmedName = formData.name.trim();
-    const trimmedEmail = formData.email.trim();
-
-    if (!trimmedName || !trimmedEmail) {
-      toast.error('Nombre y correo son obligatorios');
-      return;
-    }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmedEmail)) {
-      toast.error('Por favor ingresa un correo electrónico válido');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const updatedUser = await usersService.update(userId, {
-        username: trimmedName,
-        email: trimmedEmail,
-      });
-      syncUser(updatedUser);
-      setEditing(false);
-      toast.success('Perfil actualizado exitosamente');
-    } catch {
-      toast.error('Error al actualizar el perfil');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSecuritySave = async () => {
-    if (!userId) return;
-
-    if (!passwordData.password || !passwordData.confirmPassword) {
-      toast.error('Completa ambos campos de contraseña');
-      return;
-    }
-
-    if (passwordData.password.length < 8) {
-      toast.error('La contraseña debe tener al menos 8 caracteres');
-      return;
-    }
-
-    if (passwordData.password !== passwordData.confirmPassword) {
-      toast.error('Las contraseñas no coinciden');
-      return;
-    }
-
-    setSecuritySaving(true);
-    try {
-      await usersService.update(userId, { password: passwordData.password });
-      setPasswordData({ password: '', confirmPassword: '' });
-      setShowSecurityModal(false);
-      toast.success('Contraseña actualizada exitosamente');
-    } catch {
-      toast.error('Error al actualizar la contraseña');
-    } finally {
-      setSecuritySaving(false);
-    }
-  };
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1600px]">
@@ -135,24 +43,6 @@ export default function Profile() {
           <div className="bg-card border border-border border-l-[3px] border-l-primary rounded-[4px] p-4">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-[12px] font-semibold text-foreground">Información Personal</h2>
-              <div className="flex items-center gap-2">
-                {editing && (
-                  <button
-                    onClick={resetEditingState}
-                    className="px-3 py-1.5 rounded-md text-xs font-medium bg-secondary hover:bg-accent text-foreground transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                )}
-                <button
-                  onClick={editing ? handleSave : () => setEditing(true)}
-                  disabled={saving}
-                  className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary hover:bg-primary-hover text-primary-foreground transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
-                >
-                  {saving && <Loader2 className="w-3 h-3 animate-spin" />}
-                  {editing ? (saving ? 'Guardando…' : 'Guardar cambios') : 'Editar'}
-                </button>
-              </div>
             </div>
 
             <div className="flex items-center gap-3 mb-4 pb-4 border-b border-border">
@@ -172,25 +62,17 @@ export default function Profile() {
                 <label className="block text-[11px] font-medium text-foreground mb-1">
                   <User className="w-3 h-3 inline mr-1" /> Nombre
                 </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  disabled={!editing}
-                  className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-50"
-                />
+                <div className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground flex items-center">
+                  {user?.name ?? '—'}
+                </div>
               </div>
               <div>
                 <label className="block text-[11px] font-medium text-foreground mb-1">
                   <Mail className="w-3 h-3 inline mr-1" /> Correo
                 </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  disabled={!editing}
-                  className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-50"
-                />
+                <div className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground flex items-center">
+                  {user?.email ?? '—'}
+                </div>
               </div>
               <div>
                 <label className="block text-[11px] font-medium text-foreground mb-1">
@@ -291,97 +173,11 @@ export default function Profile() {
           </div>
 
           <div className="bg-card border border-border rounded-[4px] p-4">
-            <h2 className="text-[12px] font-semibold text-foreground mb-2">Seguridad</h2>
-            <div className="rounded-[4px] border border-border p-3 bg-surface-secondary/30">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-2">
-                  <Lock className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
-                  <div>
-                    <p className="text-[12px] font-medium text-foreground">Contraseña</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      Gestiona tus credenciales desde una ventana independiente.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSecurityModal(true)}
-                  className="h-7 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors inline-flex items-center gap-1.5"
-                >
-                  <KeyRound className="w-3.5 h-3.5" />
-                  Cambiar
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-card border border-border rounded-[4px] p-4">
             <h2 className="text-[12px] font-semibold text-foreground mb-3">GitHub</h2>
             <GitHubConnectSection />
           </div>
         </div>
       </div>
-
-      {showSecurityModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-          <div className="bg-card border border-border rounded-[4px] p-5 max-w-md w-full" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-[13px] font-semibold text-foreground">Actualizar contraseña</h2>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Este cambio es independiente de la edición del perfil.</p>
-              </div>
-              <button type="button" onClick={() => setShowSecurityModal(false)} className="inline-flex h-8 items-center justify-center rounded-[4px] border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary">
-                <X className="mr-1 w-3.5 h-3.5" /> Cerrar
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">Nueva contraseña</label>
-                <input
-                  type="password"
-                  value={passwordData.password}
-                  onChange={(e) => setPasswordData((prev) => ({ ...prev, password: e.target.value }))}
-                  placeholder="Minimo 8 caracteres"
-                  className="w-full h-8 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-foreground mb-1">Confirmar contraseña</label>
-                <input
-                  type="password"
-                  value={passwordData.confirmPassword}
-                  onChange={(e) => setPasswordData((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-                  placeholder="Repite la nueva contraseña"
-                  className="w-full h-8 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                />
-              </div>
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPasswordData({ password: '', confirmPassword: '' });
-                    setShowSecurityModal(false);
-                  }}
-                  className="flex-1 h-8 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-surface-secondary transition-colors"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSecuritySave}
-                  disabled={securitySaving}
-                  className="flex-1 h-8 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center justify-center gap-1.5"
-                >
-                  {securitySaving && <Loader2 className="w-3 h-3 animate-spin" />}
-                  {securitySaving ? 'Guardando…' : 'Guardar'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

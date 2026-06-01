@@ -3,7 +3,7 @@ import { projectsService, tasksService, usersService, githubService, ApiRequestE
 import type {
   ApiProject, ApiTask, ApiUserAccount, ApiTaskStatus, ApiTaskPriority,
   ApiBoard, ApiProjectMember, ApiActivityLog, ApiRole, ApiTaskWarning, ApiGithubPushEvent, ApiTaskAssignment,
-  ApiBoardColumn, ApiSprint, ApiMilestone, ApiTag,
+  ApiBoardColumn, ApiSprint, ApiSprintBoard, ApiMilestone, ApiTag,
 } from '../../services';
 
 // â”€â”€â”€ Real API hooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -194,6 +194,32 @@ export function useApiSprints(projectId?: number): UseApiState<ApiSprint[]> {
 
     return () => { cancelled = true; };
   }, [projectId, tick]);
+
+  const refetch = useCallback(() => setTick((t) => t + 1), []);
+  return { data, loading, error, refetch };
+}
+
+/** Fetches sprint-board associations, optionally filtered by sprint ID. */
+export function useApiSprintBoards(sprintId?: number): UseApiState<ApiSprintBoard[]> {
+  const [data, setData]       = useState<ApiSprintBoard[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError]     = useState<string | null>(null);
+  const [tick, setTick]       = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+
+    tasksService.listSprintBoards(sprintId)
+      .then((sb) => { if (!cancelled) setData(sb); })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof ApiRequestError ? err.message : 'Error cargando sprint-boards.');
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [sprintId, tick]);
 
   const refetch = useCallback(() => setTick((t) => t + 1), []);
   return { data, loading, error, refetch };

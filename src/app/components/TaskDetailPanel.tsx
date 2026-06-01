@@ -99,6 +99,7 @@ export function TaskDetailPanel({
     status: '',
     priority: '',
     assignedTo: [] as string[],
+    startDate: '',
     dueDate: '',
   });
 
@@ -124,6 +125,7 @@ export function TaskDetailPanel({
       assignedTo: currentTaskAssignments.length > 0
         ? currentTaskAssignments.map((assignment) => String(assignment.assigned_to))
         : task.assigned_to != null ? [String(task.assigned_to)] : [],
+      startDate: task.start_date ?? '',
       dueDate: task.due_date ?? '',
     });
   }, [task, currentTaskAssignments]);
@@ -235,6 +237,7 @@ export function TaskDetailPanel({
         status: nextStatusId,
         priority: taskForm.priority ? Number(taskForm.priority) : null,
         assigned_to: taskForm.assignedTo.length > 0 ? Number(taskForm.assignedTo[0]) : null,
+        start_date: taskForm.startDate || null,
         due_date: taskForm.dueDate || null,
         completed_at: shouldSetCompleted ? (task.completed_at ?? new Date().toISOString()) : null,
       });
@@ -464,11 +467,23 @@ export function TaskDetailPanel({
                   </div>
 
                   <div>
+                    <label className="block text-[11px] font-medium text-foreground mb-1">Fecha inicio</label>
+                    <DatePickerField
+                      value={taskForm.startDate}
+                      onChange={(value) => setTaskForm((prev) => ({ ...prev, startDate: value, dueDate: value && prev.dueDate && prev.dueDate < value ? '' : prev.dueDate }))}
+                      minDate={minDueDate}
+                      maxDate={taskForm.dueDate || maxDueDate}
+                      placeholder="Selecciona una fecha"
+                    />
+                  </div>
+
+                  <div>
                     <label className="block text-[11px] font-medium text-foreground mb-1">Fecha limite</label>
                     <DatePickerField
                       value={taskForm.dueDate}
                       onChange={(value) => setTaskForm((prev) => ({ ...prev, dueDate: value }))}
-                      minDate={minDueDate}
+                      disabled={!taskForm.startDate}
+                      minDate={taskForm.startDate || minDueDate}
                       maxDate={maxDueDate}
                       placeholder="Selecciona una fecha"
                     />
@@ -541,12 +556,26 @@ export function TaskDetailPanel({
                     </div>
                   </div>
                 )}
+                {task.start_date && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Fecha inicio</span>
+                    <span className="text-[11px] text-foreground flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />{task.start_date}
+                    </span>
+                  </div>
+                )}
                 {task.due_date && (
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Fecha límite</span>
                     <span className={`text-[11px] flex items-center gap-1 ${isOverdue ? 'text-destructive font-semibold' : 'text-foreground'}`}>
                       <Calendar className="w-3 h-3" />{task.due_date}
                     </span>
+                  </div>
+                )}
+                {task.scrum_number && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Story Points</span>
+                    <span className="text-[11px] font-semibold text-foreground bg-primary/10 text-primary px-2 py-0.5 rounded-full">{task.scrum_number}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between">

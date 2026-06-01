@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import {
   ArrowLeft, Calendar, Users, Clock, CheckCircle2,
-  AlertTriangle, UserPlus, RefreshCw, List, Trash2, Settings2,
+  AlertTriangle, UserPlus, RefreshCw, List, Trash2, Settings2, Pencil, Flag, Check, X as XIcon, Plus,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { StatusBadge } from '../components/StatusBadge';
@@ -16,7 +16,7 @@ import { ProgressBar } from '../components/ProgressBar';
 import { AssignResponsibleModal, type AssignCandidate } from '../components/AssignResponsibleModal';
 import { AddMemberModal } from '../components/AddMemberModal';
 import {
-  useApiBoards, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles, useApiSprints,
+  useApiBoards, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles, useApiSprints, useApiMilestones,
 } from '../hooks/useProjectData';
 import { projectsService, tasksService, usersService } from '../../services';
 import type { ApiProject, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../../services';
@@ -24,6 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
 import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace.tsx';
+import { ScrumPokerPanel } from '../components/ScrumPokerPanel';
 import Timeline from '../components/Timeline';
 import { getProjectStatusApiValue, getProjectStatusBadge, getProjectStatusLabel, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
 import { formatProjectDate, getProjectTimeRemainingLabel } from '../utils/projectDates';
@@ -50,6 +51,7 @@ export default function ProjectDetail() {
   const [savingProjectConfig, setSavingProjectConfig] = useState(false);
   const [deletingProject, setDeletingProject] = useState(false);
   const [projectStatus, setProjectStatus] = useState('planning');
+  const [projectStartDate, setProjectStartDate] = useState('');
   const [projectEndDate, setProjectEndDate] = useState('');
 
   useEffect(() => {
@@ -64,8 +66,9 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     setProjectStatus(normalizeProjectStatus(project?.status) ?? 'planning');
+    setProjectStartDate(project?.start_date ?? '');
     setProjectEndDate(project?.end_date ?? '');
-  }, [project?.status, project?.end_date]);
+  }, [project?.status, project?.start_date, project?.end_date]);
 
   // ── Boards ───────────────────────────────────────────────────────────────
   const { data: boards, loading: loadingBoards, refetch: refetchBoards } = useApiBoards(projectId);
@@ -78,6 +81,22 @@ export default function ProjectDetail() {
   }, [boards, selectedBoardId]);
   // ── Sprints (for project end date validation) ─────────────────────────────
   const { data: sprints } = useApiSprints(projectId);
+
+  // ── Milestones (for overview) ─────────────────────────────────────────────
+  const { data: overviewMilestones, refetch: refetchMilestones } = useApiMilestones(projectId);
+  const [milestonesEditing, setMilestonesEditing] = useState(false);
+  const [milestoneSaving, setMilestoneSaving] = useState<number | null>(null);
+  const [showAddMilestoneForm, setShowAddMilestoneForm] = useState(false);
+  const [newMilestoneDraft, setNewMilestoneDraft] = useState({ name: '', description: '', due_date: '' });
+  const [addingMilestone, setAddingMilestone] = useState(false);
+  const [editingMilestoneId, setEditingMilestoneId] = useState<number | null>(null);
+  const [editMilestoneDraft, setEditMilestoneDraft] = useState<{ name: string; description: string; due_date: string } | null>(null);
+  const [deletingMilestone, setDeletingMilestone] = useState<number | null>(null);
+  // Always sort by id_milestone (creation order) so marking complete never reorders the list
+  const sortedMilestones = useMemo(
+    () => [...(overviewMilestones ?? [])].sort((a, b) => a.id_milestone - b.id_milestone),
+    [overviewMilestones],
+  );
   const latestSprintEndDate = useMemo(() => {
     const dates = (sprints ?? [])
       .map((s) => s.end_date)
@@ -114,6 +133,7 @@ export default function ProjectDetail() {
   const canEditMemberRoles = capabilities.canEditMemberRoles;
   const canManageTasks = capabilities.canManageTasks;
   const canCreateRepos = capabilities.canCreateRepos;
+  const canEditMilestones = capabilities.isProjectManager || capabilities.isScrumMaster || capabilities.isProductOwner;
 
   const candidatesToAdd = useMemo(() => {
     if (!users) return [];
@@ -205,7 +225,14 @@ export default function ProjectDetail() {
     next.setDate(next.getDate() + 1);
     return next.toISOString().slice(0, 10);
   }, []);
-  const hasProjectConfigChanges = projectStatus !== (normalizeProjectStatus(project?.status) ?? 'planning') || projectEndDate !== (project?.end_date ?? '');
+  const endDateMinDate = useMemo(() => {
+    const base = projectStartDate || tomorrowDate;
+    return latestSprintEndDate && latestSprintEndDate > base ? latestSprintEndDate : base;
+  }, [projectStartDate, latestSprintEndDate, tomorrowDate]);
+  const hasProjectConfigChanges =
+    projectStatus !== (normalizeProjectStatus(project?.status) ?? 'planning') ||
+    projectStartDate !== (project?.start_date ?? '') ||
+    projectEndDate !== (project?.end_date ?? '');
 
   // ── Assign modal ─────────────────────────────────────────────────────────
   const [showAssignModal, setShowAssignModal] = useState(false);
@@ -386,6 +413,7 @@ export default function ProjectDetail() {
     try {
       const updated = await projectsService.update(project.id_project, {
         status: apiStatus,
+        start_date: projectStartDate || undefined,
         end_date: projectEndDate || undefined,
       });
       setProject(updated);
@@ -419,19 +447,18 @@ export default function ProjectDetail() {
   const initialQueryTaskId = Number(searchParams.get('task'));
   const normalizedInitialTaskId = Number.isNaN(initialQueryTaskId) || initialQueryTaskId <= 0 ? null : initialQueryTaskId;
 
-  type ProjectWorkspaceTab = 'backlog' | 'sprints' | 'boards' | 'milestones';
+  type ProjectWorkspaceTab = 'backlog' | 'sprints' | 'boards';
 
-  const [activeTab, setActiveTab] = useState<'resumen' | ProjectWorkspaceTab | 'timeline' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
+  const [activeTab, setActiveTab] = useState<'resumen' | ProjectWorkspaceTab | 'timeline' | 'code-review' | 'repositorios' | 'equipo' | 'scrum-poker' | 'configuracion'>(() => {
     if (initialQueryTab === 'tareas' || initialQueryTab === 'backlog') return 'backlog';
     if (initialQueryTab === 'sprints') return 'sprints';
     if (initialQueryTab === 'boards') return 'boards';
-    if (initialQueryTab === 'milestones') return 'milestones';
     if (initialQueryTab === 'timeline') return 'timeline';
     if (initialQueryTab === 'configuracion') return 'configuracion';
     return 'resumen';
   });
   const [initialTaskId, setInitialTaskId] = useState<number | null>(
-    initialQueryTab === 'tareas' || initialQueryTab === 'backlog' || initialQueryTab === 'sprints' || initialQueryTab === 'boards' || initialQueryTab === 'milestones' || initialQueryTab === 'timeline'
+    initialQueryTab === 'tareas' || initialQueryTab === 'backlog' || initialQueryTab === 'sprints' || initialQueryTab === 'boards' || initialQueryTab === 'timeline'
       ? normalizedInitialTaskId
       : null,
   );
@@ -441,7 +468,7 @@ export default function ProjectDetail() {
     const taskId = Number(searchParams.get('task'));
     const normalizedTaskId = Number.isNaN(taskId) || taskId <= 0 ? null : taskId;
 
-    if (tab === 'tareas' || tab === 'backlog' || tab === 'sprints' || tab === 'boards' || tab === 'milestones') {
+    if (tab === 'tareas' || tab === 'backlog' || tab === 'sprints' || tab === 'boards') {
       setActiveTab(tab === 'tareas' ? 'backlog' : tab);
       setInitialTaskId(normalizedTaskId);
       return;
@@ -530,13 +557,13 @@ export default function ProjectDetail() {
           <ADOTabs
             tabs={[
               { id: 'resumen', label: 'Overview' },
-              { id: 'backlog', label: 'Backlog' },
               { id: 'timeline', label: 'Timeline' },
+              { id: 'backlog', label: 'Backlog' },
               { id: 'sprints', label: 'Sprints' },
               { id: 'boards', label: 'Boards' },
-              { id: 'milestones', label: 'Milestones' },
               { id: 'code-review', label: 'Code Review' },
               { id: 'repositorios', label: 'Repositorios' },
+              { id: 'scrum-poker', label: 'Scrum Poker' },
               { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
               ...(canManageProject ? [{ id: 'configuracion', label: 'Configuración', icon: <Settings2 className="w-3.5 h-3.5" /> }] : []),
             ]}
@@ -551,7 +578,7 @@ export default function ProjectDetail() {
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.2, ease: 'easeOut' }}
-        className={activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones' || activeTab === 'timeline' ? 'flex-1 min-h-0 flex flex-col' : undefined}
+        className={activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'timeline' ? 'flex-1 min-h-0 flex flex-col' : undefined}
       >
         {/* RESUMEN */}
         {activeTab === 'resumen' && (
@@ -591,6 +618,7 @@ export default function ProjectDetail() {
                     {[
                       { label: 'Estado', value: getProjectStatusLabel(project.status) },
                       { label: 'Creado', value: formatProjectDate(project.created_at) },
+                      { label: 'Fecha inicio', value: project.start_date ? formatProjectDate(project.start_date) : '—' },
                       { label: 'Fecha fin', value: formatProjectDate(project.end_date) },
                       { label: 'Tiempo restante', value: timeRemainingLabel },
                       { label: 'Miembros', value: `${kpis.memberCount} personas` },
@@ -623,13 +651,382 @@ export default function ProjectDetail() {
                   </p>
                 </div>
               )}
+
+              {/* Milestones Roadmap */}
+              <div className="bg-card border border-border rounded-[4px] p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Flag className="w-3.5 h-3.5 text-primary" />
+                    <h2 className="text-[12px] font-semibold text-foreground">Roadmap de Milestones</h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {sortedMilestones.length > 0 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {sortedMilestones.filter((m) => m.is_completed).length}/{sortedMilestones.length} completados
+                      </span>
+                    )}
+                    {canEditMilestones && (
+                      <>
+                        {sortedMilestones.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMilestonesEditing((v) => !v);
+                              setEditingMilestoneId(null);
+                              setEditMilestoneDraft(null);
+                              setShowAddMilestoneForm(false);
+                            }}
+                            className={`h-6 px-2.5 rounded-[3px] border text-[10px] font-medium inline-flex items-center gap-1 transition-colors ${milestonesEditing ? 'border-primary/50 bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground hover:border-border/80'}`}
+                          >
+                            {milestonesEditing ? <><XIcon className="w-3 h-3" /> Cancelar</> : <><Pencil className="w-3 h-3" /> Editar</>}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => { setShowAddMilestoneForm((v) => !v); setNewMilestoneDraft({ name: '', description: '', due_date: '' }); }}
+                          className="h-6 w-6 rounded-[3px] border border-border text-muted-foreground hover:text-primary hover:border-primary/50 inline-flex items-center justify-center transition-colors"
+                          title="Agregar milestone"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Add milestone form */}
+                {canEditMilestones && showAddMilestoneForm && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="mb-5 rounded-[4px] border border-border bg-secondary/20 overflow-hidden"
+                  >
+                    <div className="px-4 py-3 border-b border-border bg-secondary/30">
+                      <p className="text-[12px] font-semibold text-foreground">Nuevo Milestone</p>
+                    </div>
+                    <div className="px-4 py-3 space-y-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-muted-foreground">Nombre <span className="text-destructive">*</span></label>
+                        <input
+                          type="text"
+                          placeholder="Ej. MVP listo, Entrega final..."
+                          value={newMilestoneDraft.name}
+                          onChange={(e) => setNewMilestoneDraft((d) => ({ ...d, name: e.target.value }))}
+                          className="w-full bg-input-background border border-input rounded-[3px] px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-muted-foreground">Descripción</label>
+                        <input
+                          type="text"
+                          placeholder="Descripción breve (opcional)"
+                          value={newMilestoneDraft.description}
+                          onChange={(e) => setNewMilestoneDraft((d) => ({ ...d, description: e.target.value }))}
+                          className="w-full bg-input-background border border-input rounded-[3px] px-3 py-2 text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-medium text-muted-foreground">Fecha límite</label>
+                        <DatePickerField
+                          value={newMilestoneDraft.due_date}
+                          onChange={(v) => setNewMilestoneDraft((d) => ({ ...d, due_date: v }))}
+                          placeholder="Sin fecha límite"
+                          minDate={project?.start_date?.slice(0, 10) ?? project?.created_at?.slice(0, 10)}
+                          maxDate={project?.end_date ?? undefined}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2 px-4 py-3 border-t border-border bg-secondary/10">
+                      <button
+                        type="button"
+                        onClick={() => { setShowAddMilestoneForm(false); setNewMilestoneDraft({ name: '', description: '', due_date: '' }); }}
+                        className="h-7 px-3 rounded-[3px] border border-border text-[11px] text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={addingMilestone || !newMilestoneDraft.name.trim()}
+                        onClick={async () => {
+                          if (!newMilestoneDraft.name.trim() || !projectId) return;
+                          setAddingMilestone(true);
+                          try {
+                            await tasksService.createMilestone({
+                              project: Number(projectId),
+                              name: newMilestoneDraft.name.trim(),
+                              ...(newMilestoneDraft.description ? { description: newMilestoneDraft.description } : {}),
+                              ...(newMilestoneDraft.due_date ? { due_date: newMilestoneDraft.due_date } : {}),
+                            });
+                            refetchMilestones();
+                            setShowAddMilestoneForm(false);
+                            setNewMilestoneDraft({ name: '', description: '', due_date: '' });
+                            toast.success('Milestone agregado');
+                          } catch {
+                            toast.error('No se pudo agregar el milestone.');
+                          } finally {
+                            setAddingMilestone(false);
+                          }
+                        }}
+                        className="h-7 px-3 rounded-[3px] bg-primary hover:bg-primary-hover text-primary-foreground text-[11px] font-medium inline-flex items-center gap-1.5 transition-colors disabled:opacity-50"
+                      >
+                        {addingMilestone && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                        Agregar
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {sortedMilestones.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <Flag className="w-6 h-6 text-muted-foreground/30 mx-auto mb-2" />
+                    <p className="text-[11px] text-muted-foreground italic">No hay milestones definidos para este proyecto.</p>
+                  </div>
+                ) : (
+                  <>
+                    {/* Progress bar */}
+                    {(() => {
+                      const total = sortedMilestones.length;
+                      const done = sortedMilestones.filter((m) => m.is_completed).length;
+                      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                      return (
+                        <div className="mb-5">
+                          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+                            <div className="h-full bg-green-500 rounded-full transition-all duration-500" style={{ width: `${pct}%` }} />
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1">{pct}% completado</p>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Timeline — flex-based, no absolute positioning needed */}
+                    {(() => {
+                      const firstUnfinishedIdx = sortedMilestones.findIndex((m) => !m.is_completed);
+                      const lastCompletedIdx = firstUnfinishedIdx === -1
+                        ? sortedMilestones.length - 1
+                        : firstUnfinishedIdx - 1;
+
+                      return (
+                        <div className="flex flex-col">
+                          {sortedMilestones.map((ms, idx) => {
+                            const isInlineEditing = milestonesEditing && editingMilestoneId === ms.id_milestone;
+                            const isLast = idx === sortedMilestones.length - 1;
+                            const canComplete = !ms.is_completed && idx === firstUnfinishedIdx;
+                            const canUncomplete = ms.is_completed && idx === lastCompletedIdx;
+                            const showToggle = milestonesEditing && (canComplete || canUncomplete);
+
+                            return (
+                              <div key={ms.id_milestone} className="flex gap-3">
+                                {/* Node column: circle + connector line */}
+                                <div className="flex flex-col items-center w-4 shrink-0">
+                                  <div className={`w-4 h-4 rounded-full border-2 shrink-0 mt-0.5 flex items-center justify-center transition-all duration-300 ${
+                                    ms.is_completed
+                                      ? 'bg-green-500 border-green-500'
+                                      : idx === firstUnfinishedIdx
+                                        ? 'bg-card border-primary ring-2 ring-primary/20'
+                                        : 'bg-card border-border'
+                                  }`}>
+                                    {ms.is_completed && <Check className="w-2.5 h-2.5 text-white" />}
+                                  </div>
+                                  {!isLast && (
+                                    <div className={`w-0.5 flex-1 min-h-[24px] mt-1 transition-colors duration-300 ${ms.is_completed ? 'bg-green-500' : 'bg-border'}`} />
+                                  )}
+                                </div>
+
+                                {/* Content column */}
+                                <div className="flex-1 min-w-0 pb-5">
+                                  {isInlineEditing && editMilestoneDraft ? (
+                                    /* Inline edit form */
+                                    <motion.div
+                                      initial={{ opacity: 0 }}
+                                      animate={{ opacity: 1 }}
+                                      className="rounded-[4px] border border-border bg-secondary/20 overflow-hidden -mt-0.5"
+                                    >
+                                      <div className="px-3 py-2 border-b border-border bg-secondary/30">
+                                        <p className="text-[11px] font-semibold text-foreground">Editar milestone</p>
+                                      </div>
+                                      <div className="px-3 py-2.5 space-y-2.5">
+                                        <div className="space-y-1">
+                                          <label className="text-[10px] font-medium text-muted-foreground">Nombre</label>
+                                          <input
+                                            type="text"
+                                            value={editMilestoneDraft.name}
+                                            onChange={(e) => setEditMilestoneDraft((d) => d ? { ...d, name: e.target.value } : d)}
+                                            className="w-full bg-input-background border border-input rounded-[3px] px-2.5 py-1.5 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+                                          />
+                                        </div>
+                                        <div className="space-y-1">
+                                          <label className="text-[10px] font-medium text-muted-foreground">Descripción</label>
+                                          <input
+                                            type="text"
+                                            value={editMilestoneDraft.description}
+                                            onChange={(e) => setEditMilestoneDraft((d) => d ? { ...d, description: e.target.value } : d)}
+                                            placeholder="Descripción breve (opcional)"
+                                            className="w-full bg-input-background border border-input rounded-[3px] px-2.5 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-primary/40"
+                                          />
+                                        </div>
+                                        <div className="space-y-1">
+                                          <label className="text-[10px] font-medium text-muted-foreground">Fecha límite</label>
+                                          <DatePickerField
+                                            value={editMilestoneDraft.due_date}
+                                            onChange={(v) => setEditMilestoneDraft((d) => d ? { ...d, due_date: v } : d)}
+                                            placeholder="Sin fecha límite"
+                                            minDate={project?.start_date?.slice(0, 10) ?? project?.created_at?.slice(0, 10)}
+                                            maxDate={project?.end_date ?? undefined}
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className="flex justify-end gap-2 px-3 py-2 border-t border-border bg-secondary/10">
+                                        <button
+                                          type="button"
+                                          onClick={() => { setEditingMilestoneId(null); setEditMilestoneDraft(null); }}
+                                          className="h-6 px-2.5 rounded-[3px] border border-border text-[10px] text-muted-foreground hover:text-foreground hover:bg-secondary/50 transition-colors"
+                                        >
+                                          Cancelar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          disabled={milestoneSaving === ms.id_milestone}
+                                          onClick={async () => {
+                                            if (!editMilestoneDraft) return;
+                                            setMilestoneSaving(ms.id_milestone);
+                                            try {
+                                              await tasksService.updateMilestone(ms.id_milestone, {
+                                                name: editMilestoneDraft.name.trim() || undefined,
+                                                description: editMilestoneDraft.description || null,
+                                                due_date: editMilestoneDraft.due_date || null,
+                                              });
+                                              refetchMilestones();
+                                              setEditingMilestoneId(null);
+                                              setEditMilestoneDraft(null);
+                                            } catch {
+                                              toast.error('No se pudo guardar el milestone.');
+                                            } finally {
+                                              setMilestoneSaving(null);
+                                            }
+                                          }}
+                                          className="h-6 px-2.5 rounded-[3px] bg-primary hover:bg-primary-hover text-primary-foreground text-[10px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50"
+                                        >
+                                          {milestoneSaving === ms.id_milestone && <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                                          Guardar
+                                        </button>
+                                      </div>
+                                    </motion.div>
+                                  ) : (
+                                    /* Read / edit-actions view */
+                                    <div className={`${ms.is_completed && !milestonesEditing ? 'opacity-60' : ''}`}>
+                                      <div className="flex items-start justify-between gap-2 flex-wrap">
+                                        <div className="min-w-0">
+                                          <p className={`text-[12px] font-medium leading-tight ${ms.is_completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
+                                            {ms.name}
+                                          </p>
+                                          {ms.description && (
+                                            <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-2">{ms.description}</p>
+                                          )}
+                                          {ms.due_date && (
+                                            <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                                              <Calendar className="w-2.5 h-2.5" />{ms.due_date.slice(0, 10)}
+                                            </p>
+                                          )}
+                                        </div>
+
+                                        <div className="flex items-center gap-1 flex-shrink-0">
+                                          {milestonesEditing ? (
+                                            <>
+                                              {showToggle && (
+                                                <button
+                                                  type="button"
+                                                  disabled={milestoneSaving === ms.id_milestone}
+                                                  onClick={async () => {
+                                                    setMilestoneSaving(ms.id_milestone);
+                                                    try {
+                                                      await tasksService.updateMilestone(ms.id_milestone, { is_completed: !ms.is_completed });
+                                                      refetchMilestones();
+                                                    } catch {
+                                                      toast.error('No se pudo actualizar el milestone.');
+                                                    } finally {
+                                                      setMilestoneSaving(null);
+                                                    }
+                                                  }}
+                                                  className={`h-6 px-2 rounded-[3px] border text-[10px] font-medium inline-flex items-center gap-1 transition-colors disabled:opacity-50 ${
+                                                    ms.is_completed
+                                                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-600 hover:bg-amber-500/20'
+                                                      : 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20'
+                                                  }`}
+                                                >
+                                                  {milestoneSaving === ms.id_milestone ? (
+                                                    <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                                                  ) : ms.is_completed ? (
+                                                    'Desmarcar'
+                                                  ) : (
+                                                    <><Check className="w-3 h-3" /> Completar</>
+                                                  )}
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setEditingMilestoneId(ms.id_milestone);
+                                                  setEditMilestoneDraft({
+                                                    name: ms.name,
+                                                    description: ms.description ?? '',
+                                                    due_date: ms.due_date ? ms.due_date.slice(0, 10) : '',
+                                                  });
+                                                }}
+                                                className="h-6 w-6 rounded-[3px] border border-border text-muted-foreground hover:text-primary hover:border-primary/40 inline-flex items-center justify-center transition-colors"
+                                                title="Editar detalles"
+                                              >
+                                                <Pencil className="w-3 h-3" />
+                                              </button>
+                                              <button
+                                                type="button"
+                                                disabled={deletingMilestone === ms.id_milestone}
+                                                onClick={async () => {
+                                                  if (!confirm(`¿Eliminar el milestone "${ms.name}"?`)) return;
+                                                  setDeletingMilestone(ms.id_milestone);
+                                                  try {
+                                                    await tasksService.deleteMilestone(ms.id_milestone);
+                                                    refetchMilestones();
+                                                    toast.success('Milestone eliminado');
+                                                  } catch {
+                                                    toast.error('No se pudo eliminar el milestone.');
+                                                  } finally {
+                                                    setDeletingMilestone(null);
+                                                  }
+                                                }}
+                                                className="h-6 w-6 rounded-[3px] border border-border text-muted-foreground hover:text-destructive hover:border-destructive/40 inline-flex items-center justify-center transition-colors disabled:opacity-50"
+                                                title="Eliminar milestone"
+                                              >
+                                                {deletingMilestone === ms.id_milestone
+                                                  ? <span className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+                                                  : <Trash2 className="w-3 h-3" />}
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${ms.is_completed ? 'bg-green-500/10 text-green-600' : 'bg-muted/60 text-muted-foreground'}`}>
+                                              {ms.is_completed ? 'Completado' : 'Pendiente'}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
               </div>
             </div>
           </div>
         )}
 
         {/* WORKSPACE TABS */}
-        {(activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones') && (
+        {(activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards') && (
           <div className="flex-1 min-h-0 flex flex-col">
             <ProjectTasksWorkspace
               projectId={projectId}
@@ -657,7 +1054,7 @@ export default function ProjectDetail() {
 
         {activeTab === 'timeline' && (
           <div className="flex-1 min-h-0 flex flex-col">
-            <Timeline projectId={projectId} projectEndDate={project?.end_date} />
+            <Timeline projectId={projectId} projectStartDate={project?.start_date} projectEndDate={project?.end_date} />
           </div>
         )}
 
@@ -672,6 +1069,24 @@ export default function ProjectDetail() {
         {/* REPOSITORIOS */}
         {activeTab === 'repositorios' && (
           <GitHubReposView projectId={projectId} canCreateRepos={canCreateRepos} />
+        )}
+
+        {/* SCRUM POKER */}
+        {activeTab === 'scrum-poker' && (
+          <div className="rounded-[6px] border border-border bg-card p-4 space-y-3">
+            <div>
+              <h2 className="text-[13px] font-semibold text-foreground">Scrum Poker</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Asigna story points (escala Fibonacci) a cada tarea del proyecto.
+              </p>
+            </div>
+            <ScrumPokerPanel
+              tasks={allProjectTasks}
+              sprints={sprints ?? []}
+              userMap={userMap}
+              canEdit={canManageTasks}
+            />
+          </div>
         )}
 
         {/* EQUIPO */}
@@ -801,12 +1216,27 @@ export default function ProjectDetail() {
                 </div>
 
                 <div>
+                  <label className="block text-[11px] font-medium text-foreground mb-1">Fecha de inicio</label>
+                  <DatePickerField
+                    value={projectStartDate}
+                    onChange={(v) => {
+                      setProjectStartDate(v);
+                      if (projectEndDate && v && projectEndDate < v) setProjectEndDate('');
+                    }}
+                    disabled={!canManageProject || savingProjectConfig}
+                    minDate={tomorrowDate}
+                    maxDate={projectEndDate || undefined}
+                    placeholder="Selecciona una fecha de inicio"
+                  />
+                </div>
+
+                <div>
                   <label className="block text-[11px] font-medium text-foreground mb-1">Fecha de entrega</label>
                   <DatePickerField
                     value={projectEndDate}
                     onChange={setProjectEndDate}
                     disabled={!canManageProject || savingProjectConfig}
-                    minDate={latestSprintEndDate ?? tomorrowDate}
+                    minDate={endDateMinDate}
                     placeholder="Selecciona una fecha de entrega"
                   />
                   {latestSprintEndDate && (

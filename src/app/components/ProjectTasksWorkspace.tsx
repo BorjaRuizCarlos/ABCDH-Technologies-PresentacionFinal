@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState, useCallback } from 'react';
 import {
   DndContext,
   DragEndEvent,
@@ -8,27 +8,103 @@ import {
 } from '@dnd-kit/core';
 import {
   SortableContext,
+  arrayMove,
   useSortable,
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, Check, Filter, GripVertical, LayoutDashboard, LayoutList, Loader2, Pencil, Plus, Search } from 'lucide-react';
+import { Calendar, Check, Filter, GripVertical, LayoutDashboard, LayoutList, Loader2, Lock, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useApiBoardColumns,
   useApiBoards,
-  useApiMilestones,
   useApiSprints,
+  useApiSprintBoards,
   useApiTags,
   useApiTaskAssignments,
   useApiTasks,
 } from '../hooks/useProjectData';
+import { usePreventDoubleClick } from '../hooks/usePreventDoubleClick';
 import { tasksService } from '../../services';
 import type { ApiBoardColumn, ApiTask, ApiTaskPriority } from '../../services';
 import { TaskDetailPanel } from './TaskDetailPanel';
 import { DatePickerField } from './DatePickerField';
 import { TaskAssigneePicker } from './TaskAssigneePicker';
 import { TagColorPicker } from './TagColorPicker';
+import { useAuth } from '../context/AuthContext';
+
+interface SortableColumnItemProps {
+  column: ApiBoardColumn;
+  index: number;
+  totalCount: number;
+  isEditing: boolean;
+  editName: string;
+  savingEdit: boolean;
+  onEditStart: () => void;
+  onEditChange: (name: string) => void;
+  onEditSave: () => void;
+  onEditCancel: () => void;
+  onDelete: () => void;
+}
+
+function SortableColumnItem({ column, index, totalCount, isEditing, editName, savingEdit, onEditStart, onEditChange, onEditSave, onEditCancel, onDelete }: SortableColumnItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: column.id_column });
+  const isLast = index === totalCount - 1;
+  const isRevision = totalCount > 1 && index === totalCount - 2;
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className="flex items-center gap-1.5 rounded-[3px] border border-border bg-surface-secondary/40 px-2 py-1.5 text-[11px]"
+    >
+      <button type="button" {...attributes} {...listeners} className="cursor-grab touch-none text-muted-foreground hover:text-foreground shrink-0">
+        <GripVertical className="w-3.5 h-3.5" />
+      </button>
+      <span className="text-[10px] text-muted-foreground w-5 shrink-0 text-right">{index + 1}.</span>
+      {isEditing ? (
+        <input
+          value={editName}
+          onChange={(e) => onEditChange(e.target.value)}
+          className="flex-1 h-6 rounded-[3px] border border-border bg-card px-2 text-[11px] focus:outline-none focus:ring-1 focus:ring-primary/40"
+          autoFocus
+        />
+      ) : (
+        <span className="flex-1 text-foreground truncate">{column.name}</span>
+      )}
+      <div className="flex items-center gap-1 shrink-0">
+        {isRevision && !isEditing && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">Revisión</span>
+        )}
+        {isLast && !isEditing && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/20 text-success font-medium">Final</span>
+        )}
+        {isEditing ? (
+          <>
+            <button type="button" onClick={onEditSave} disabled={savingEdit} className="h-5 px-2 rounded-[3px] bg-primary text-primary-foreground text-[10px] disabled:opacity-50">
+              {savingEdit ? '…' : 'Guardar'}
+            </button>
+            <button type="button" onClick={onEditCancel} className="h-5 px-2 rounded-[3px] border border-border text-muted-foreground text-[10px]">Cancelar</button>
+          </>
+        ) : (
+          <>
+            <button type="button" onClick={onEditStart} className="h-5 w-5 rounded-[3px] border border-border text-muted-foreground hover:text-foreground inline-flex items-center justify-center transition-colors" title="Editar columna">
+              <Pencil className="w-2.5 h-2.5" />
+            </button>
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={totalCount <= 2}
+              className="h-5 w-5 rounded-[3px] border border-destructive/30 text-destructive hover:bg-destructive/10 inline-flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              title={totalCount <= 2 ? 'El board debe tener al menos 2 columnas' : 'Eliminar columna'}
+            >
+              <Trash2 className="w-2.5 h-2.5" />
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 interface ProjectTasksWorkspaceProps {
   projectId: number;
@@ -44,7 +120,7 @@ interface ProjectTasksWorkspaceProps {
   onInitialTaskHandled?: (taskId: number) => void;
 }
 
-const TAB_OPTIONS = ['backlog', 'sprints', 'boards', 'milestones'] as const;
+const TAB_OPTIONS = ['backlog', 'sprints', 'boards'] as const;
 export type WorkspaceTab = typeof TAB_OPTIONS[number];
 
 function DroppableColumn({ id, children }: { id: string; children: React.ReactNode }) {
@@ -123,6 +199,7 @@ export function ProjectTasksWorkspace({
   initialTaskId = null,
   onInitialTaskHandled,
 }: ProjectTasksWorkspaceProps) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<WorkspaceTab>(forcedTab ?? 'backlog');
   const [selectedTask, setSelectedTask] = useState<ApiTask | null>(null);
   const [selectedSprintId, setSelectedSprintId] = useState<number | null>(null);
@@ -140,22 +217,45 @@ export function ProjectTasksWorkspace({
   const [showSprintModal, setShowSprintModal] = useState(false);
   const [editingSprint, setEditingSprint] = useState<{ id: number; name: string; start_date: string; end_date: string; status: 'planned' | 'active' | 'closed' } | null>(null);
   const [savingSprintEdit, setSavingSprintEdit] = useState(false);
-  const [showMilestoneModal, setShowMilestoneModal] = useState(false);
+  const [newSprintBoardIds, setNewSprintBoardIds] = useState<number[]>([]);
+  const [editingSprintBoardIds, setEditingSprintBoardIds] = useState<number[]>([]);
+  const [deletingSprintId, setDeletingSprintId] = useState<number | null>(null);
   const [showTagModal, setShowTagModal] = useState(false);
 
   const [newTask, setNewTask] = useState({
     title: '',
     description: '',
+    start_date: '',
     due_date: '',
     priority: null as number | null,
     tags: [] as number[],
     assignedTo: [] as number[],
     sprint: null as number | null,
   });
-  const [newBoard, setNewBoard] = useState({ name: '', description: '' });
+  const [newBoard, setNewBoard] = useState({
+    name: '', description: '',
+    coding_style: 'standard', review_focus: 'strict', tech_stack: 'mixed',
+    naming_convention: 'default', response_language: 'es', custom_instructions: '',
+  });
+  const [newBoardColumns, setNewBoardColumns] = useState<Array<{ name: string; tempId: number }>>([
+    { name: 'Revisión', tempId: 1 },
+    { name: 'Done', tempId: 2 },
+  ]);
+  const [newBoardColumnInput, setNewBoardColumnInput] = useState('');
+  const [editingBoardId, setEditingBoardId] = useState<number | null>(null);
+  const [editingBoardDraft, setEditingBoardDraft] = useState<{
+    name: string; description: string; coding_style: string; review_focus: string;
+    tech_stack: string; naming_convention: string; response_language: string; custom_instructions: string;
+  } | null>(null);
+  const [savingBoardEdit, setSavingBoardEdit] = useState(false);
+  const [editingColumnId, setEditingColumnId] = useState<number | null>(null);
+  const [editingColumnName, setEditingColumnName] = useState('');
+  const [savingColumnEdit, setSavingColumnEdit] = useState(false);
+  const [showCreateBoardInSprint, setShowCreateBoardInSprint] = useState(false);
+  const [newBoardInSprintName, setNewBoardInSprintName] = useState('');
+  const [creatingBoardInSprint, setCreatingBoardInSprint] = useState(false);
   const [newColumn, setNewColumn] = useState({ name: '', is_final: false });
   const [newSprint, setNewSprint] = useState({ name: '', start_date: '', end_date: '', status: 'planned' as 'planned' | 'active' | 'closed' });
-  const [newMilestone, setNewMilestone] = useState({ name: '', description: '', due_date: '' });
   const [newTag, setNewTag] = useState({ name: '', color: '#56697f' });
 
   // State for pushing backlog tasks to a sprint+board
@@ -169,13 +269,13 @@ export function ProjectTasksWorkspace({
   const { data: boards, loading: loadingBoards, refetch: refetchBoards } = useApiBoards(projectId);
   const { data: columns, loading: loadingColumns, refetch: refetchColumns } = useApiBoardColumns();
   const { data: sprints, loading: loadingSprints, refetch: refetchSprints } = useApiSprints(projectId);
-  const { data: milestones, loading: loadingMilestones, refetch: refetchMilestones } = useApiMilestones(projectId);
   const { data: tags, loading: loadingTags, refetch: refetchTags } = useApiTags(projectId);
+  const { data: allSprintBoards, refetch: refetchSprintBoards } = useApiSprintBoards();
 
   const taskIds = useMemo(() => (tasks ?? []).map((task) => task.id_task), [tasks]);
   const { data: taskAssignments, refetch: refetchTaskAssignments } = useApiTaskAssignments(taskIds);
 
-  const loading = loadingTasks || loadingBoards || loadingColumns || loadingSprints || loadingMilestones || loadingTags;
+  const loading = loadingTasks || loadingBoards || loadingColumns || loadingSprints || loadingTags;
 
   const boardColumnsByBoard = useMemo(() => {
     const map = new Map<number, ApiBoardColumn[]>();
@@ -185,13 +285,7 @@ export function ProjectTasksWorkspace({
       map.set(column.board, existing);
     });
     map.forEach((value, key) => {
-      map.set(
-        key,
-        value.slice().sort((a, b) => {
-          if (a.is_final !== b.is_final) return a.is_final ? 1 : -1;
-          return a.order - b.order;
-        }),
-      );
+      map.set(key, value.slice().sort((a, b) => a.order - b.order));
     });
     return map;
   }, [boards, columns]);
@@ -231,6 +325,16 @@ export function ProjectTasksWorkspace({
     d.setDate(d.getDate() + 1);
     return d.toISOString().slice(0, 10);
   }, [latestSprintEndDate, tomorrowDate]);
+
+  const sortedSprints = useMemo(
+    () => [...(sprints ?? [])].sort((a, b) => {
+      if (!a.start_date && !b.start_date) return a.id_sprint - b.id_sprint;
+      if (!a.start_date) return -1;
+      if (!b.start_date) return 1;
+      return a.start_date.localeCompare(b.start_date);
+    }),
+    [sprints],
+  );
 
   const priorityById = useMemo(() => {
     const map = new Map<number, ApiTaskPriority>();
@@ -281,6 +385,44 @@ export function ProjectTasksWorkspace({
     });
     return map;
   }, [tags]);
+
+  // ── Sprint-board computed values ─────────────────────────────────────────
+  const selectedSprintBoardIds = useMemo(() => {
+    if (!selectedSprintId) return new Set<number>();
+    return new Set(
+      (allSprintBoards ?? []).filter((sb) => sb.sprint === selectedSprintId).map((sb) => sb.board),
+    );
+  }, [allSprintBoards, selectedSprintId]);
+
+  const sprintBoardsList = useMemo(() => {
+    if (!allSprintBoards) return boards ?? []; // still loading
+    return selectedSprintBoardIds.size === 0
+      ? []
+      : (boards ?? []).filter((b) => selectedSprintBoardIds.has(b.id_board));
+  }, [boards, selectedSprintBoardIds, allSprintBoards]);
+
+  const boardsWithTasksInEditingSprint = useMemo(() => {
+    if (!editingSprint) return new Set<number>();
+    const result = new Set<number>();
+    (tasks ?? [])
+      .filter((t) => t.sprint === editingSprint.id)
+      .forEach((t) => {
+        const col = (columns ?? []).find((c) => c.id_column === t.board_column);
+        if (col) result.add(col.board);
+      });
+    return result;
+  }, [tasks, columns, editingSprint]);
+
+  const pushBoardOptions = useMemo(() => {
+    if (!pushSprintId) return boards ?? [];
+    const pushSprintBoardIds = new Set(
+      (allSprintBoards ?? []).filter((sb) => sb.sprint === pushSprintId).map((sb) => sb.board),
+    );
+    return pushSprintBoardIds.size > 0
+      ? (boards ?? []).filter((b) => pushSprintBoardIds.has(b.id_board))
+      : boards ?? [];
+  }, [boards, allSprintBoards, pushSprintId]);
+  // ─────────────────────────────────────────────────────────────────────────
 
   const filteredTagOptions = useMemo(() => {
     const query = tagFilterSearch.trim().toLowerCase();
@@ -334,6 +476,7 @@ export function ProjectTasksWorkspace({
         board_column: boardColumn,
         title: newTask.title.trim(),
         description: newTask.description.trim() || undefined,
+        start_date: newTask.start_date || undefined,
         due_date: newTask.due_date || undefined,
         priority: newTask.priority,
         sprint: newTask.sprint,
@@ -348,6 +491,7 @@ export function ProjectTasksWorkspace({
       setNewTask({
         title: '',
         description: '',
+        start_date: '',
         due_date: '',
         priority: null,
         tags: [],
@@ -366,9 +510,29 @@ export function ProjectTasksWorkspace({
     e.preventDefault();
     if (!newBoard.name.trim()) return;
     try {
-      const created = await tasksService.createBoard(projectId, newBoard.name.trim(), newBoard.description.trim() || undefined);
+      const created = await tasksService.createBoard(projectId, {
+        name: newBoard.name.trim(),
+        description: newBoard.description.trim() || undefined,
+        coding_style: newBoard.coding_style || undefined,
+        review_focus: newBoard.review_focus || undefined,
+        tech_stack: newBoard.tech_stack || undefined,
+        naming_convention: newBoard.naming_convention || undefined,
+        response_language: newBoard.response_language || undefined,
+        custom_instructions: newBoard.custom_instructions.trim() || undefined,
+      });
+      for (let i = 0; i < newBoardColumns.length; i++) {
+        await tasksService.createBoardColumn({
+          board: created.id_board,
+          name: newBoardColumns[i].name,
+          order: i + 1,
+          is_final: i === newBoardColumns.length - 1,
+        });
+      }
+      if (newBoardColumns.length > 0) refetchColumns();
       setSelectedBoardId(created.id_board);
-      setNewBoard({ name: '', description: '' });
+      setNewBoard({ name: '', description: '', coding_style: 'standard', review_focus: 'strict', tech_stack: 'mixed', naming_convention: 'default', response_language: 'es', custom_instructions: '' });
+      setNewBoardColumns([{ name: 'Revisión', tempId: 1 }, { name: 'Done', tempId: 2 }]);
+      setNewBoardColumnInput('');
       setShowBoardModal(false);
       refetchBoards();
       toast.success('Board creado.');
@@ -377,17 +541,53 @@ export function ProjectTasksWorkspace({
     }
   };
 
+  const saveBoard = async () => {
+    if (!editingBoardId || !editingBoardDraft) return;
+    setSavingBoardEdit(true);
+    try {
+      await tasksService.updateBoard(editingBoardId, {
+        name: editingBoardDraft.name.trim() || undefined,
+        description: editingBoardDraft.description.trim() || null,
+        coding_style: editingBoardDraft.coding_style || undefined,
+        review_focus: editingBoardDraft.review_focus || undefined,
+        tech_stack: editingBoardDraft.tech_stack || undefined,
+        naming_convention: editingBoardDraft.naming_convention || undefined,
+        response_language: editingBoardDraft.response_language || undefined,
+        custom_instructions: editingBoardDraft.custom_instructions.trim() || null,
+      });
+      setEditingBoardId(null);
+      setEditingBoardDraft(null);
+      refetchBoards();
+      toast.success('Board actualizado.');
+    } catch {
+      toast.error('No se pudo actualizar el board.');
+    } finally {
+      setSavingBoardEdit(false);
+    }
+  };
+
   const createColumn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedBoardId || !newColumn.name.trim()) return;
-    const nextOrder = (boardColumnsByBoard.get(selectedBoardId) ?? []).length + 1;
+    const existingCols = [...(boardColumnsByBoard.get(selectedBoardId) ?? [])].sort((a, b) => a.order - b.order);
+    const finalCol = existingCols.find((c) => c.is_final);
     try {
-      await tasksService.createBoardColumn({
-        board: selectedBoardId,
-        name: newColumn.name.trim(),
-        order: nextOrder,
-        is_final: newColumn.is_final,
-      });
+      if (finalCol) {
+        await tasksService.updateBoardColumn(finalCol.id_column, { order: finalCol.order + 1 });
+        await tasksService.createBoardColumn({
+          board: selectedBoardId,
+          name: newColumn.name.trim(),
+          order: finalCol.order,
+          is_final: false,
+        });
+      } else {
+        await tasksService.createBoardColumn({
+          board: selectedBoardId,
+          name: newColumn.name.trim(),
+          order: existingCols.length + 1,
+          is_final: true,
+        });
+      }
       setNewColumn({ name: '', is_final: false });
       setShowColumnModal(false);
       refetchColumns();
@@ -415,6 +615,19 @@ export function ProjectTasksWorkspace({
         end_date: editingSprint.end_date || null,
         status: editingSprint.status,
       });
+      // Sync board associations
+      const currentBoardAssocs = (allSprintBoards ?? []).filter((sb) => sb.sprint === editingSprint.id);
+      const currentBoardIdsSet = new Set(currentBoardAssocs.map((sb) => sb.board));
+      const newBoardIdsSet = new Set(editingSprintBoardIds);
+      const toAdd = editingSprintBoardIds.filter((id) => !currentBoardIdsSet.has(id));
+      const toRemove = currentBoardAssocs.filter((sb) => !newBoardIdsSet.has(sb.board));
+      if (toAdd.length > 0 || toRemove.length > 0) {
+        await Promise.all([
+          ...toAdd.map((boardId) => tasksService.createSprintBoard({ sprint: editingSprint.id, board: boardId })),
+          ...toRemove.map((sb) => tasksService.deleteSprintBoard(sb.id)),
+        ]);
+        refetchSprintBoards();
+      }
       refetchSprints();
       setEditingSprint(null);
       toast.success('Sprint actualizado.');
@@ -473,32 +686,24 @@ export function ProjectTasksWorkspace({
         end_date: newSprint.end_date || undefined,
         status: newSprint.status,
       });
+      if (newSprintBoardIds.length > 0) {
+        await Promise.all(
+          newSprintBoardIds.map((boardId) =>
+            tasksService.createSprintBoard({ sprint: created.id_sprint, board: boardId }),
+          ),
+        );
+        refetchSprintBoards();
+      }
       setSelectedSprintId(created.id_sprint);
+      const firstBoardId = newSprintBoardIds[0] ?? (boards ?? [])[0]?.id_board ?? null;
+      setSelectedBoardId(firstBoardId ?? null);
+      setNewSprintBoardIds([]);
       setNewSprint({ name: '', start_date: '', end_date: '', status: 'planned' });
       setShowSprintModal(false);
       refetchSprints();
       toast.success('Sprint creado.');
     } catch {
       toast.error('No se pudo crear el sprint.');
-    }
-  };
-
-  const createMilestone = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMilestone.name.trim()) return;
-    try {
-      await tasksService.createMilestone({
-        project: projectId,
-        name: newMilestone.name.trim(),
-        description: newMilestone.description.trim() || undefined,
-        due_date: newMilestone.due_date || undefined,
-      });
-      setShowMilestoneModal(false);
-      setNewMilestone({ name: '', description: '', due_date: '' });
-      refetchMilestones();
-      toast.success('Milestone creado.');
-    } catch {
-      toast.error('No se pudo crear el milestone.');
     }
   };
 
@@ -515,6 +720,46 @@ export function ProjectTasksWorkspace({
       toast.error('No se pudo crear el tag.');
     }
   };
+
+  const deleteSprint = async (sprintId: number, sprintName: string) => {
+    if (!confirm(`¿Eliminar “${sprintName}”? Las tareas volverán al backlog.`)) return;
+    setDeletingSprintId(sprintId);
+    try {
+      await tasksService.deleteSprint(sprintId);
+      if (selectedSprintId === sprintId) setSelectedSprintId(null);
+      setEditingSprint(null);
+      refetchSprints();
+      refetchTasks();
+      refetchSprintBoards();
+      toast.success('Sprint eliminado.');
+    } catch {
+      toast.error('No se pudo eliminar el sprint.');
+    } finally {
+      setDeletingSprintId(null);
+    }
+  };
+
+  // Double-click prevention for modal open buttons
+  const handleShowTaskModal = usePreventDoubleClick(
+    () => {
+      setNewTask((prev) => ({ ...prev, sprint: null }));
+      setShowTaskModal(true);
+    },
+  );
+
+  const handleShowBoardModal = usePreventDoubleClick(() => setShowBoardModal(true));
+  const handleShowColumnModal = usePreventDoubleClick(() => setShowColumnModal(true));
+  const handleShowSprintModal = usePreventDoubleClick(() => {
+    setNewSprint((prev) => ({ ...prev, start_date: sprintStartMinDate, end_date: '' }));
+    setNewSprintBoardIds([]);
+    setShowSprintModal(true);
+  });
+  const handleShowSprintTaskModal = usePreventDoubleClick(
+    () => {
+      setNewTask((prev) => ({ ...prev, sprint: selectedSprintId }));
+      setShowTaskModal(true);
+    },
+  );
 
   const selectedBoard = (boards ?? []).find((board) => board.id_board === selectedBoardId) ?? null;
 
@@ -549,6 +794,75 @@ export function ProjectTasksWorkspace({
       toast.success(targetIsFinal ? 'Tarea completada.' : 'Tarea movida.');
     } catch {
       toast.error('No se pudo mover la tarea.');
+    }
+  };
+
+  const handleColumnDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || String(active.id) === String(over.id) || !selectedBoardId) return;
+    const cols = [...(boardColumnsByBoard.get(selectedBoardId) ?? [])].sort((a, b) => a.order - b.order);
+    const oldIndex = cols.findIndex((c) => c.id_column === Number(active.id));
+    const newIndex = cols.findIndex((c) => c.id_column === Number(over.id));
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(cols, oldIndex, newIndex);
+    try {
+      await Promise.all(
+        reordered.map((col, i) =>
+          tasksService.updateBoardColumn(col.id_column, { order: i + 1, is_final: i === reordered.length - 1 }),
+        ),
+      );
+      refetchColumns();
+    } catch {
+      toast.error('No se pudo reordenar las columnas.');
+    }
+  };
+
+  const handleDeleteColumn = async (columnId: number, boardId: number) => {
+    const cols = boardColumnsByBoard.get(boardId) ?? [];
+    if (cols.length <= 2) {
+      toast.error('El board debe tener al menos 2 columnas.');
+      return;
+    }
+    if (!confirm('¿Eliminar esta columna? Las tareas que estén aquí quedarán sin columna asignada.')) return;
+    try {
+      await tasksService.deleteBoardColumn(columnId);
+      const remaining = [...cols].filter((c) => c.id_column !== columnId).sort((a, b) => a.order - b.order);
+      await Promise.all(
+        remaining.map((col, i) =>
+          tasksService.updateBoardColumn(col.id_column, { order: i + 1, is_final: i === remaining.length - 1 }),
+        ),
+      );
+      refetchColumns();
+      toast.success('Columna eliminada.');
+    } catch {
+      toast.error('No se pudo eliminar la columna.');
+    }
+  };
+
+  const createBoardInSprint = async () => {
+    if (!newBoardInSprintName.trim()) return;
+    setCreatingBoardInSprint(true);
+    try {
+      const created = await tasksService.createBoard(projectId, {
+        name: newBoardInSprintName.trim(),
+        coding_style: 'standard',
+        review_focus: 'strict',
+        tech_stack: 'mixed',
+        naming_convention: 'default',
+        response_language: 'es',
+      });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'Revisión', order: 1, is_final: false });
+      await tasksService.createBoardColumn({ board: created.id_board, name: 'Done', order: 2, is_final: true });
+      setNewSprintBoardIds((prev) => [...prev, created.id_board]);
+      setNewBoardInSprintName('');
+      setShowCreateBoardInSprint(false);
+      refetchBoards();
+      refetchColumns();
+      toast.success('Board creado.');
+    } catch {
+      toast.error('No se pudo crear el board.');
+    } finally {
+      setCreatingBoardInSprint(false);
     }
   };
 
@@ -667,14 +981,14 @@ export function ProjectTasksWorkspace({
             <>
               <button
                 type="button"
-                onClick={() => setShowBoardModal(true)}
+                onClick={() => handleShowBoardModal()}
                 className="h-8 px-3 rounded-[3px] bg-primary text-primary-foreground text-[11px] font-medium inline-flex items-center gap-1.5"
               >
                 <LayoutDashboard className="w-3.5 h-3.5" /> Nuevo board
               </button>
               <button
                 type="button"
-                onClick={() => setShowColumnModal(true)}
+                onClick={() => handleShowColumnModal()}
                 disabled={!selectedBoardId}
                 className="h-8 px-3 rounded-[3px] border border-border text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40 hover:bg-accent/30 transition-colors"
               >
@@ -682,11 +996,8 @@ export function ProjectTasksWorkspace({
               </button>
             </>
           )}
-          {canCreateBoards && activeTab === 'milestones' && (
-            <button type="button" onClick={() => setShowMilestoneModal(true)} className="h-8 px-3 rounded-[3px] border border-border text-[11px]">Nuevo milestone</button>
-          )}
           {canCreateTasks && activeTab === 'backlog' && (
-            <button type="button" onClick={() => { setNewTask((prev) => ({ ...prev, sprint: null })); setShowTaskModal(true); }} className="h-8 px-3 rounded-[3px] bg-primary text-primary-foreground text-[11px] font-medium inline-flex items-center gap-1">
+            <button type="button" onClick={() => handleShowTaskModal()} className="h-8 px-3 rounded-[3px] bg-primary text-primary-foreground text-[11px] font-medium inline-flex items-center gap-1">
               <Plus className="w-3.5 h-3.5" /> Nueva tarea
             </button>
           )}
@@ -787,7 +1098,7 @@ export function ProjectTasksWorkspace({
               {canCreateBoards && (
                 <button
                   type="button"
-                  onClick={() => { setNewSprint((prev) => ({ ...prev, start_date: sprintStartMinDate, end_date: '' })); setShowSprintModal(true); }}
+                  onClick={() => handleShowSprintModal()}
                   disabled={noMoreSprintsAllowed}
                   className="h-6 w-6 rounded-[4px] bg-primary text-primary-foreground shadow-sm hover:opacity-90 transition-opacity inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
                   title={noMoreSprintsAllowed ? 'No hay espacio para mas sprints' : 'Nuevo sprint'}
@@ -797,14 +1108,22 @@ export function ProjectTasksWorkspace({
               )}
             </div>
             <div className="flex-1 overflow-y-auto">
-              {(sprints ?? []).length === 0 ? (
+              {sortedSprints.length === 0 ? (
                 <p className="px-3 py-4 text-[11px] text-muted-foreground">Sin sprints creados</p>
               ) : (
-                (sprints ?? []).map((sprint) => (
+                sortedSprints.map((sprint) => (
                   <button
                     key={sprint.id_sprint}
                     type="button"
-                    onClick={() => { setSelectedSprintId(sprint.id_sprint); const firstBoard = (boards ?? [])[0] ?? null; setSelectedBoardId(firstBoard ? firstBoard.id_board : null); }}
+                    onClick={() => {
+                      setSelectedSprintId(sprint.id_sprint);
+                      const sprintBoards = (allSprintBoards ?? []).filter((sb) => sb.sprint === sprint.id_sprint);
+                      const firstBoardId =
+                        sprintBoards.length > 0
+                          ? sprintBoards[0].board
+                          : (boards ?? [])[0]?.id_board ?? null;
+                      setSelectedBoardId(firstBoardId ?? null);
+                    }}
                     className={`w-full text-left px-3 py-2.5 border-b border-border/40 last:border-0 transition-colors group ${
                       selectedSprintId === sprint.id_sprint
                         ? 'bg-primary/10 text-primary'
@@ -818,7 +1137,11 @@ export function ProjectTasksWorkspace({
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
+                            const currentBoardIds = (allSprintBoards ?? [])
+                              .filter((sb) => sb.sprint === sprint.id_sprint)
+                              .map((sb) => sb.board);
                             setEditingSprint({ id: sprint.id_sprint, name: sprint.name, start_date: sprint.start_date ?? '', end_date: sprint.end_date ?? '', status: sprint.status });
+                            setEditingSprintBoardIds(currentBoardIds);
                           }}
                           className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded-[3px] border border-border bg-card text-muted-foreground hover:text-foreground inline-flex items-center justify-center shrink-0 transition-opacity"
                           title="Editar sprint"
@@ -861,7 +1184,7 @@ export function ProjectTasksWorkspace({
                     className="h-7 min-w-[200px] rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
                   >
                     <option value="">Todas las tareas</option>
-                    {(boards ?? []).map((board) => (
+                    {sprintBoardsList.map((board) => (
                       <option key={board.id_board} value={board.id_board}>{board.name}</option>
                     ))}
                   </select>
@@ -889,7 +1212,7 @@ export function ProjectTasksWorkspace({
                   {canCreateTasks && (
                     <button
                       type="button"
-                      onClick={() => { setNewTask((prev) => ({ ...prev, sprint: selectedSprintId })); setShowTaskModal(true); }}
+                      onClick={() => handleShowSprintTaskModal()}
                       className="h-7 px-2.5 rounded-[3px] bg-primary text-primary-foreground text-[10px] font-medium inline-flex items-center gap-1"
                     >
                       <Plus className="w-3 h-3" /> Nueva tarea
@@ -1005,6 +1328,7 @@ export function ProjectTasksWorkspace({
 
       {!loading && activeTab === 'boards' && (
         <div className="grid lg:grid-cols-[260px_minmax(0,1fr)] gap-3 min-h-0 flex-1">
+          {/* Left: board list */}
           <div className="rounded-[4px] border border-border bg-card overflow-y-auto">
             <div className="px-3 py-2 border-b border-border">
               <p className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground font-medium">Boards</p>
@@ -1014,103 +1338,252 @@ export function ProjectTasksWorkspace({
             ) : (
               <div className="p-1.5 space-y-0.5">
                 {(boards ?? []).map((board) => (
-                  <button
+                  <div
                     key={board.id_board}
-                    type="button"
-                    onClick={() => setSelectedBoardId(board.id_board)}
-                    className={`w-full text-left rounded-[4px] px-3 py-2 text-[11px] transition-colors ${
+                    className={`group relative rounded-[4px] px-3 py-2 text-[11px] cursor-pointer transition-colors ${
                       selectedBoardId === board.id_board
                         ? 'bg-primary text-primary-foreground'
                         : 'hover:bg-accent/30 text-foreground'
                     }`}
+                    onClick={() => { setSelectedBoardId(board.id_board); setEditingBoardId(null); setEditingBoardDraft(null); }}
                   >
-                    <p className="font-medium">{board.name}</p>
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="font-medium truncate flex-1">{board.name}</p>
+                      {canCreateBoards && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBoardId(board.id_board);
+                            setEditingBoardId(board.id_board);
+                            setEditingBoardDraft({
+                              name: board.name,
+                              description: board.description ?? '',
+                              coding_style: board.coding_style ?? 'standard',
+                              review_focus: board.review_focus ?? 'strict',
+                              tech_stack: board.tech_stack ?? 'mixed',
+                              naming_convention: board.naming_convention ?? 'default',
+                              response_language: board.response_language ?? 'es',
+                              custom_instructions: board.custom_instructions ?? '',
+                            });
+                          }}
+                          className={`opacity-0 group-hover:opacity-100 h-5 w-5 rounded-[3px] border inline-flex items-center justify-center shrink-0 transition-opacity ml-1 ${
+                            selectedBoardId === board.id_board
+                              ? 'border-primary-foreground/30 text-primary-foreground/70 hover:text-primary-foreground bg-primary/30'
+                              : 'border-border text-muted-foreground hover:text-foreground bg-card'
+                          }`}
+                          title="Editar board"
+                        >
+                          <Pencil className="w-2.5 h-2.5" />
+                        </button>
+                      )}
+                    </div>
                     {board.description && (
-                      <p className={`text-[10px] mt-0.5 ${selectedBoardId === board.id_board ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{board.description}</p>
+                      <p className={`text-[10px] mt-0.5 truncate ${selectedBoardId === board.id_board ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{board.description}</p>
                     )}
                     <p className={`text-[9px] mt-1 ${selectedBoardId === board.id_board ? 'text-primary-foreground/60' : 'text-muted-foreground/70'}`}>
                       {(boardColumnsByBoard.get(board.id_board) ?? []).length} columnas
                     </p>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-[4px] border border-border bg-card p-3 overflow-auto">
-            <h3 className="text-[12px] font-medium text-foreground mb-2">{selectedBoard ? selectedBoard.name : 'Selecciona un board'}</h3>
-            {selectedBoard && (
-              <div className="space-y-2">
-                {(boardColumnsByBoard.get(selectedBoard.id_board) ?? []).map((column) => (
-                  <div key={column.id_column} className="flex items-center justify-between rounded-[3px] border border-border bg-surface-secondary/40 px-2 py-1.5 text-[11px]">
-                    <span>{column.order}. {column.name}</span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const boardCols = boardColumnsByBoard.get(column.board) ?? [];
-                          const currentFinal = boardCols.find((c) => c.is_final && c.id_column !== column.id_column);
-                          const ops: Promise<unknown>[] = [];
-                          if (!column.is_final && currentFinal) {
-                            ops.push(tasksService.updateBoardColumn(currentFinal.id_column, { is_final: false }));
-                          }
-                          ops.push(tasksService.updateBoardColumn(column.id_column, { is_final: !column.is_final }));
-                          void Promise.all(ops).then(() => refetchColumns());
-                        }}
-                        className={`h-6 px-2.5 rounded-full border text-[10px] inline-flex items-center gap-1 transition-colors ${
-                          column.is_final
-                            ? 'border-success/30 bg-success/10 text-success'
-                            : 'border-border text-muted-foreground hover:text-foreground'
-                        }`}
-                      >
-                        {column.is_final && <Check className="w-3 h-3" />}
-                        {column.is_final ? 'Final' : 'Marcar final'}
-                      </button>
-                      <button type="button" onClick={() => { void tasksService.deleteBoardColumn(column.id_column).then(() => refetchColumns()); }} className="h-6 px-2 rounded-[3px] border border-destructive/30 text-destructive text-[10px]">Eliminar</button>
-                    </div>
                   </div>
                 ))}
               </div>
             )}
           </div>
-        </div>
-      )}
 
-      {!loading && activeTab === 'milestones' && (
-        <div className="rounded-[4px] border border-border bg-card overflow-auto">
-          <table className="w-full text-[11px]">
-            <thead>
-              <tr className="border-b border-border bg-surface-secondary/50">
-                <th className="text-left px-3 py-2">Milestone</th>
-                <th className="text-left px-3 py-2">Due Date</th>
-                <th className="text-left px-3 py-2">Estado</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(milestones ?? []).map((milestone) => (
-                <tr key={milestone.id_milestone} className="border-b border-border/60">
-                  <td className="px-3 py-2">
-                    <p className="font-medium text-foreground">{milestone.name}</p>
-                    {milestone.description && <p className="text-muted-foreground">{milestone.description}</p>}
-                  </td>
-                  <td className="px-3 py-2">{milestone.due_date ?? '-'}</td>
-                  <td className="px-3 py-2">
+          {/* Right: board details / column manager */}
+          <div className="rounded-[4px] border border-border bg-card flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="px-3 py-2.5 border-b border-border flex items-center gap-2 flex-shrink-0">
+              {editingBoardId === selectedBoard?.id_board && editingBoardDraft ? (
+                <input
+                  value={editingBoardDraft.name}
+                  onChange={(e) => setEditingBoardDraft((prev) => prev ? { ...prev, name: e.target.value } : null)}
+                  className="flex-1 h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[12px] font-medium focus:outline-none focus:ring-1 focus:ring-primary/40"
+                />
+              ) : (
+                <h3 className="flex-1 text-[12px] font-medium text-foreground">{selectedBoard ? selectedBoard.name : 'Selecciona un board'}</h3>
+              )}
+              {selectedBoard && canCreateBoards && (
+                <div className="flex items-center gap-1 shrink-0">
+                  {editingBoardId === selectedBoard.id_board ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => void saveBoard()}
+                        disabled={savingBoardEdit}
+                        className="h-7 px-2.5 rounded-[3px] bg-primary text-primary-foreground text-[11px] font-medium disabled:opacity-50 inline-flex items-center gap-1"
+                      >
+                        {savingBoardEdit ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                        Confirmar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setEditingBoardId(null); setEditingBoardDraft(null); }}
+                        className="h-7 px-2 rounded-[3px] border border-border text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" /> Cancelar
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => {
-                        void tasksService.updateMilestone(milestone.id_milestone, { is_completed: !milestone.is_completed }).then(() => refetchMilestones());
+                        setEditingBoardId(selectedBoard.id_board);
+                        setEditingBoardDraft({
+                          name: selectedBoard.name,
+                          description: selectedBoard.description ?? '',
+                          coding_style: selectedBoard.coding_style ?? 'standard',
+                          review_focus: selectedBoard.review_focus ?? 'strict',
+                          tech_stack: selectedBoard.tech_stack ?? 'mixed',
+                          naming_convention: selectedBoard.naming_convention ?? 'default',
+                          response_language: selectedBoard.response_language ?? 'es',
+                          custom_instructions: selectedBoard.custom_instructions ?? '',
+                        });
                       }}
-                      className={`h-7 px-3 rounded-[3px] border text-[10px] ${milestone.is_completed ? 'border-success/30 text-success bg-success/10' : 'border-border text-muted-foreground'}`}
+                      className="h-7 px-2.5 rounded-[3px] border border-border text-[11px] text-muted-foreground hover:text-foreground inline-flex items-center gap-1"
                     >
-                      {milestone.is_completed ? (
-                        <span className="inline-flex items-center gap-1"><Check className="w-3 h-3" />Completado</span>
-                      ) : 'Marcar completo'}
+                      <Pencil className="w-3 h-3" /> Editar
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Body */}
+            {selectedBoard ? (
+              <div className="flex-1 overflow-y-auto p-3">
+                {editingBoardId === selectedBoard.id_board && editingBoardDraft ? (
+                  /* Edit form */
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Descripción</label>
+                      <textarea
+                        value={editingBoardDraft.description}
+                        onChange={(e) => setEditingBoardDraft((prev) => prev ? { ...prev, description: e.target.value } : null)}
+                        rows={2}
+                        placeholder="Descripción opcional"
+                        className="w-full rounded-[3px] border border-border bg-surface-secondary px-2 py-1.5 text-[11px] resize-none focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Estilo de código</label>
+                        <select value={editingBoardDraft.coding_style} onChange={(e) => setEditingBoardDraft((prev) => prev ? { ...prev, coding_style: e.target.value } : null)} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                          <option value="standard">Standard</option>
+                          <option value="clean_code">Clean Code / SOLID</option>
+                          <option value="tdd">Test-Driven Development</option>
+                          <option value="security">Security-First</option>
+                          <option value="performance">Performance &amp; Optimization</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Enfoque de revisión</label>
+                        <select value={editingBoardDraft.review_focus} onChange={(e) => setEditingBoardDraft((prev) => prev ? { ...prev, review_focus: e.target.value } : null)} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                          <option value="strict">Strict — Story &amp; criteria only</option>
+                          <option value="general">General — Story + code quality</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Stack tecnológico</label>
+                        <select value={editingBoardDraft.tech_stack} onChange={(e) => setEditingBoardDraft((prev) => prev ? { ...prev, tech_stack: e.target.value } : null)} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                          <option value="mixed">Mixed / Full-Stack</option>
+                          <option value="python">Python</option>
+                          <option value="nodejs">Node.js / JavaScript</option>
+                          <option value="typescript">TypeScript / Node.js</option>
+                          <option value="java">Java / Spring</option>
+                          <option value="go">Go</option>
+                          <option value="dotnet">C# / .NET</option>
+                          <option value="react">React</option>
+                          <option value="nextjs">Next.js</option>
+                          <option value="angular">Angular</option>
+                          <option value="vue">Vue.js</option>
+                          <option value="vite">Vite / Vanilla JS</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Convención de nombres</label>
+                        <select value={editingBoardDraft.naming_convention} onChange={(e) => setEditingBoardDraft((prev) => prev ? { ...prev, naming_convention: e.target.value } : null)} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                          <option value="default">Language defaults</option>
+                          <option value="camel_case">camelCase</option>
+                          <option value="pascal_case">PascalCase</option>
+                          <option value="snake_case">snake_case</option>
+                          <option value="kebab_case">kebab-case</option>
+                          <option value="mixed">Mixed</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Idioma de respuesta</label>
+                      <select value={editingBoardDraft.response_language} onChange={(e) => setEditingBoardDraft((prev) => prev ? { ...prev, response_language: e.target.value } : null)} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                        <option value="es">Español</option>
+                        <option value="en">English</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Instrucciones personalizadas</label>
+                      <textarea
+                        value={editingBoardDraft.custom_instructions}
+                        onChange={(e) => setEditingBoardDraft((prev) => prev ? { ...prev, custom_instructions: e.target.value } : null)}
+                        rows={3}
+                        placeholder="Instrucciones adicionales para el revisor de código..."
+                        className="w-full rounded-[3px] border border-border bg-surface-secondary px-2 py-1.5 text-[11px] resize-none focus:outline-none focus:ring-1 focus:ring-primary/40"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  /* Column list with DnD */
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-[0.06em] font-medium mb-2">
+                      Columnas ({(boardColumnsByBoard.get(selectedBoard.id_board) ?? []).length})
+                    </p>
+                    <DndContext collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
+                      <SortableContext
+                        items={(boardColumnsByBoard.get(selectedBoard.id_board) ?? []).map((c) => c.id_column)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {(boardColumnsByBoard.get(selectedBoard.id_board) ?? []).map((column, index) => {
+                          const allCols = boardColumnsByBoard.get(selectedBoard.id_board) ?? [];
+                          return (
+                            <SortableColumnItem
+                              key={column.id_column}
+                              column={column}
+                              index={index}
+                              totalCount={allCols.length}
+                              isEditing={editingColumnId === column.id_column}
+                              editName={editingColumnName}
+                              savingEdit={savingColumnEdit}
+                              onEditStart={() => { setEditingColumnId(column.id_column); setEditingColumnName(column.name); }}
+                              onEditChange={setEditingColumnName}
+                              onEditSave={() => void (async () => {
+                                if (!editingColumnName.trim()) return;
+                                setSavingColumnEdit(true);
+                                try {
+                                  await tasksService.updateBoardColumn(column.id_column, { name: editingColumnName.trim() });
+                                  setEditingColumnId(null);
+                                  refetchColumns();
+                                  toast.success('Columna actualizada.');
+                                } catch {
+                                  toast.error('No se pudo actualizar la columna.');
+                                } finally {
+                                  setSavingColumnEdit(false);
+                                }
+                              })()}
+                              onEditCancel={() => setEditingColumnId(null)}
+                              onDelete={() => void handleDeleteColumn(column.id_column, selectedBoard.id_board)}
+                            />
+                          );
+                        })}
+                      </SortableContext>
+                    </DndContext>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <p className="text-[12px] text-muted-foreground">Selecciona un board para ver sus columnas</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1127,29 +1600,32 @@ export function ProjectTasksWorkspace({
 
             <div className="grid md:grid-cols-2 gap-2">
               <DatePickerField
+                value={newTask.start_date}
+                onChange={(value) => setNewTask((prev) => ({ ...prev, start_date: value, due_date: value && prev.due_date && prev.due_date < value ? '' : prev.due_date }))}
+                minDate={tomorrowDate}
+                maxDate={projectEndDate ?? undefined}
+                placeholder="Fecha inicio"
+              />
+              <DatePickerField
                 value={newTask.due_date}
                 onChange={(value) => setNewTask((prev) => ({ ...prev, due_date: value }))}
-                minDate={tomorrowDate}
+                disabled={!newTask.start_date}
+                minDate={newTask.start_date || tomorrowDate}
                 maxDate={projectEndDate ?? undefined}
                 placeholder="Fecha limite"
               />
-              <select
-                value={newTask.priority ?? ''}
-                onChange={(e) => setNewTask((prev) => ({ ...prev, priority: e.target.value ? Number(e.target.value) : null }))}
-                className="h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
-              >
-                <option value="">Selecciona prioridad</option>
-                {priorities.map((priority) => (
-                  <option key={priority.id_priority} value={priority.id_priority}>{priority.name}</option>
-                ))}
-              </select>
             </div>
 
-            <p className="text-[10px] text-muted-foreground">
-              {newTask.sprint != null
-                ? 'La tarea se creara y asignara al sprint seleccionado.'
-                : 'Las tareas nuevas se crean siempre en Product Backlog (sin sprint, sin milestone).'}
-            </p>
+            <select
+              value={newTask.priority ?? ''}
+              onChange={(e) => setNewTask((prev) => ({ ...prev, priority: e.target.value ? Number(e.target.value) : null }))}
+              className="h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
+            >
+              <option value="">Selecciona prioridad</option>
+              {priorities.map((priority) => (
+                <option key={priority.id_priority} value={priority.id_priority}>{priority.name}</option>
+              ))}
+            </select>
 
             <div>
               <p className="text-[11px] text-muted-foreground mb-1">Asignar personas</p>
@@ -1181,6 +1657,11 @@ export function ProjectTasksWorkspace({
             )}
 
             <div className="flex justify-end gap-2 pt-2">
+              <p className="flex-1 text-[10px] text-muted-foreground self-center">
+                {newTask.sprint != null
+                  ? 'La tarea se creara y asignara al sprint seleccionado.'
+                  : 'Se creara en Product Backlog (sin sprint, sin milestone).'}
+              </p>
               <button type="button" onClick={() => { setNewTask((prev) => ({ ...prev, sprint: null })); setShowTaskModal(false); }} className="h-8 px-3 rounded-[3px] border border-border text-[11px]">Cancelar</button>
               <button type="submit" className="h-8 px-3 rounded-[3px] bg-primary text-primary-foreground text-[11px]">Crear</button>
             </div>
@@ -1217,7 +1698,7 @@ export function ProjectTasksWorkspace({
               className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
             >
               <option value="">Selecciona board</option>
-              {(boards ?? []).map((b) => (
+              {pushBoardOptions.map((b) => (
                 <option key={b.id_board} value={b.id_board}>{b.name}</option>
               ))}
             </select>
@@ -1273,10 +1754,72 @@ export function ProjectTasksWorkspace({
               <option value="active">Activo</option>
               <option value="closed">Cerrado</option>
             </select>
+            {/* Board management */}
+            <div>
+              <label className="block text-[11px] font-medium text-foreground mb-1.5">
+                Boards del sprint
+                {editingSprintBoardIds.length > 0 && (
+                  <span className="text-muted-foreground font-normal ml-1">({editingSprintBoardIds.length} seleccionado{editingSprintBoardIds.length !== 1 ? 's' : ''})</span>
+                )}
+              </label>
+              {(boards ?? []).length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">Sin boards en el proyecto.</p>
+              ) : (
+                <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
+                  {(boards ?? []).map((board) => {
+                    const selected = editingSprintBoardIds.includes(board.id_board);
+                    const locked = boardsWithTasksInEditingSprint.has(board.id_board) && selected;
+                    return (
+                      <button
+                        key={board.id_board}
+                        type="button"
+                        disabled={locked}
+                        onClick={() => {
+                          if (locked) return;
+                          setEditingSprintBoardIds((prev) =>
+                            selected ? prev.filter((id) => id !== board.id_board) : [...prev, board.id_board],
+                          );
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border text-[11px] transition-colors text-left ${
+                          locked
+                            ? 'border-border/50 bg-surface-secondary/60 opacity-70 cursor-not-allowed'
+                            : selected
+                            ? 'border-primary/40 bg-primary/10'
+                            : 'border-border hover:bg-accent/20'
+                        }`}
+                      >
+                        <span
+                          className={`w-4 h-4 rounded-[3px] border flex items-center justify-center shrink-0 ${
+                            selected && !locked ? 'bg-primary border-primary' : 'border-border bg-surface-secondary'
+                          }`}
+                        >
+                          {selected && !locked && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                          {locked && <Lock className="w-2 h-2 text-muted-foreground" />}
+                        </span>
+                        <span className={selected && !locked ? 'text-primary font-medium' : 'text-foreground'}>{board.name}</span>
+                        {locked && <span className="ml-auto text-[10px] text-muted-foreground">Con tareas</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setEditingSprint(null)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
               <button type="submit" disabled={savingSprintEdit} className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50">
                 {savingSprintEdit ? 'Guardando...' : 'Guardar'}
+              </button>
+            </div>
+            {/* Danger zone */}
+            <div className="border-t border-border pt-3">
+              <button
+                type="button"
+                onClick={() => void deleteSprint(editingSprint.id, editingSprint.name)}
+                disabled={deletingSprintId === editingSprint.id}
+                className="h-7 px-2.5 rounded-[3px] border border-destructive/30 text-destructive text-[11px] hover:bg-destructive/10 transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                {deletingSprintId === editingSprint.id ? 'Eliminando...' : 'Eliminar sprint'}
               </button>
             </div>
           </form>
@@ -1284,14 +1827,135 @@ export function ProjectTasksWorkspace({
       )}
 
       {showBoardModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={createBoard} className="w-full max-w-md rounded-[6px] border border-border bg-card p-5 space-y-3">
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-start justify-center p-6 overflow-y-auto">
+          <form onSubmit={createBoard} className="w-full max-w-lg rounded-[6px] border border-border bg-card p-5 space-y-4 my-auto">
             <h2 className="text-[13px] font-semibold">Nuevo board</h2>
-            <input value={newBoard.name} onChange={(e) => setNewBoard((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" />
-            <textarea value={newBoard.description} onChange={(e) => setNewBoard((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripcion" rows={3} className="w-full rounded-[3px] border border-border bg-surface-secondary px-2 py-1 text-[11px]" />
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowBoardModal(false)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
-              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px]">Crear</button>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="col-span-2">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Nombre *</label>
+                <input value={newBoard.name} onChange={(e) => setNewBoard((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre del board" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" autoFocus />
+              </div>
+              <div className="col-span-2">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Descripción</label>
+                <textarea value={newBoard.description} onChange={(e) => setNewBoard((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripción opcional" rows={2} className="w-full rounded-[3px] border border-border bg-surface-secondary px-2 py-1.5 text-[11px] resize-none" />
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Estilo de código</label>
+                <select value={newBoard.coding_style} onChange={(e) => setNewBoard((prev) => ({ ...prev, coding_style: e.target.value }))} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                  <option value="standard">Standard</option>
+                  <option value="clean_code">Clean Code / SOLID</option>
+                  <option value="tdd">Test-Driven Development</option>
+                  <option value="security">Security-First</option>
+                  <option value="performance">Performance &amp; Optimization</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Enfoque de revisión</label>
+                <select value={newBoard.review_focus} onChange={(e) => setNewBoard((prev) => ({ ...prev, review_focus: e.target.value }))} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                  <option value="strict">Strict — Story &amp; criteria only</option>
+                  <option value="general">General — Story + code quality</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Stack tecnológico</label>
+                <select value={newBoard.tech_stack} onChange={(e) => setNewBoard((prev) => ({ ...prev, tech_stack: e.target.value }))} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                  <option value="mixed">Mixed / Full-Stack</option>
+                  <option value="python">Python</option>
+                  <option value="nodejs">Node.js / JavaScript</option>
+                  <option value="typescript">TypeScript / Node.js</option>
+                  <option value="java">Java / Spring</option>
+                  <option value="go">Go</option>
+                  <option value="dotnet">C# / .NET</option>
+                  <option value="react">React</option>
+                  <option value="nextjs">Next.js</option>
+                  <option value="angular">Angular</option>
+                  <option value="vue">Vue.js</option>
+                  <option value="vite">Vite / Vanilla JS</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Convención de nombres</label>
+                <select value={newBoard.naming_convention} onChange={(e) => setNewBoard((prev) => ({ ...prev, naming_convention: e.target.value }))} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                  <option value="default">Language defaults</option>
+                  <option value="camel_case">camelCase</option>
+                  <option value="pascal_case">PascalCase</option>
+                  <option value="snake_case">snake_case</option>
+                  <option value="kebab_case">kebab-case</option>
+                  <option value="mixed">Mixed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Idioma de respuesta</label>
+                <select value={newBoard.response_language} onChange={(e) => setNewBoard((prev) => ({ ...prev, response_language: e.target.value }))} className="w-full h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+                  <option value="es">Español</option>
+                  <option value="en">English</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-[10px] font-medium text-muted-foreground mb-1">Instrucciones personalizadas</label>
+                <textarea value={newBoard.custom_instructions} onChange={(e) => setNewBoard((prev) => ({ ...prev, custom_instructions: e.target.value }))} placeholder="Instrucciones adicionales para el revisor de código..." rows={2} className="w-full rounded-[3px] border border-border bg-surface-secondary px-2 py-1.5 text-[11px] resize-none" />
+              </div>
+            </div>
+            {/* Column setup */}
+            <div>
+              <label className="block text-[10px] font-medium text-muted-foreground mb-1.5">Columnas iniciales</label>
+              <div className="space-y-1 mb-2">
+                {newBoardColumns.map((col, i) => {
+                  const isLast = i === newBoardColumns.length - 1;
+                  const isRevision = newBoardColumns.length > 1 && i === newBoardColumns.length - 2;
+                  return (
+                    <div key={col.tempId} className="flex items-center gap-1.5 rounded-[3px] border border-border bg-surface-secondary/40 px-2 py-1.5 text-[11px]">
+                      <span className="text-[10px] text-muted-foreground w-5 shrink-0 text-right">{i + 1}.</span>
+                      <span className="flex-1 text-foreground">{col.name}</span>
+                      {isRevision && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-medium">Revisión</span>}
+                      {isLast && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-success/20 text-success font-medium">Final</span>}
+                      <button
+                        type="button"
+                        onClick={() => setNewBoardColumns((prev) => prev.filter((_, idx) => idx !== i))}
+                        disabled={newBoardColumns.length <= 2}
+                        className="h-5 w-5 rounded-[3px] border border-destructive/30 text-destructive hover:bg-destructive/10 inline-flex items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
+                        title={newBoardColumns.length <= 2 ? 'Mínimo 2 columnas' : 'Eliminar'}
+                      >
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex gap-1.5">
+                <input
+                  value={newBoardColumnInput}
+                  onChange={(e) => setNewBoardColumnInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      if (newBoardColumnInput.trim()) {
+                        setNewBoardColumns((prev) => [...prev, { name: newBoardColumnInput.trim(), tempId: Date.now() }]);
+                        setNewBoardColumnInput('');
+                      }
+                    }
+                  }}
+                  placeholder="Nueva columna..."
+                  className="flex-1 h-7 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (newBoardColumnInput.trim()) {
+                      setNewBoardColumns((prev) => [...prev, { name: newBoardColumnInput.trim(), tempId: Date.now() }]);
+                      setNewBoardColumnInput('');
+                    }
+                  }}
+                  className="h-7 px-2.5 rounded-[3px] border border-border text-muted-foreground hover:text-foreground text-[11px] inline-flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" /> Agregar
+                </button>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1">La última columna es siempre la final. La penúltima se marca como Revisión.</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-1">
+              <button type="button" onClick={() => { setShowBoardModal(false); setNewBoardColumnInput(''); }} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
+              <button type="submit" disabled={!newBoard.name.trim()} className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50">Crear</button>
             </div>
           </form>
         </div>
@@ -1299,31 +1963,15 @@ export function ProjectTasksWorkspace({
 
       {showColumnModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={createColumn} className="w-full max-w-md rounded-[6px] border border-border bg-card p-5 space-y-3">
-            <h2 className="text-[13px] font-semibold">Nueva columna</h2>
-            <input value={newColumn.name} onChange={(e) => setNewColumn((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" />
-            <button
-              type="button"
-              onClick={() => setNewColumn((prev) => ({ ...prev, is_final: !prev.is_final }))}
-              className={`w-full rounded-[4px] border px-3 py-2 text-left transition-colors ${
-                newColumn.is_final
-                  ? 'border-success/30 bg-success/10'
-                  : 'border-border bg-surface-secondary/40 hover:bg-surface-secondary/70'
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-medium text-foreground">Marcar como columna final</p>
-                  <p className="text-[10px] text-muted-foreground">Cuando una tarea llega aqui se considera completada.</p>
-                </div>
-                <span className={`inline-flex h-5 min-w-[40px] items-center rounded-full border px-1 ${newColumn.is_final ? 'border-success bg-success/20 justify-end' : 'border-border bg-card justify-start'}`}>
-                  <span className={`h-3 w-3 rounded-full ${newColumn.is_final ? 'bg-success' : 'bg-muted-foreground/40'}`} />
-                </span>
-              </div>
-            </button>
+          <form onSubmit={createColumn} className="w-full max-w-sm rounded-[6px] border border-border bg-card p-5 space-y-3">
+            <div>
+              <h2 className="text-[13px] font-semibold">Nueva columna</h2>
+              <p className="text-[10px] text-muted-foreground mt-0.5">Se insertará antes de la columna final.</p>
+            </div>
+            <input value={newColumn.name} onChange={(e) => setNewColumn((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre de la columna" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" autoFocus />
             <div className="flex justify-end gap-2">
               <button type="button" onClick={() => setShowColumnModal(false)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
-              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px]">Crear</button>
+              <button type="submit" disabled={!newColumn.name.trim()} className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50">Crear</button>
             </div>
           </form>
         </div>
@@ -1362,23 +2010,93 @@ export function ProjectTasksWorkspace({
               <option value="active">Activo</option>
               <option value="closed">Cerrado</option>
             </select>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowSprintModal(false)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
-              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px]">Crear</button>
+            {/* Board selection */}
+            <div>
+              <label className="block text-[11px] font-medium text-foreground mb-1.5">
+                Boards del sprint
+                {newSprintBoardIds.length > 0 && (
+                  <span className="text-muted-foreground font-normal ml-1">({newSprintBoardIds.length} seleccionado{newSprintBoardIds.length !== 1 ? 's' : ''})</span>
+                )}
+              </label>
+              {(boards ?? []).length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">Sin boards. Crea uno en la pestaña Boards.</p>
+              ) : (
+                <div className="space-y-1 max-h-36 overflow-y-auto pr-0.5">
+                  {(boards ?? []).map((board) => {
+                    const selected = newSprintBoardIds.includes(board.id_board);
+                    return (
+                      <button
+                        key={board.id_board}
+                        type="button"
+                        onClick={() =>
+                          setNewSprintBoardIds((prev) =>
+                            selected ? prev.filter((id) => id !== board.id_board) : [...prev, board.id_board],
+                          )
+                        }
+                        className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-[3px] border text-[11px] transition-colors text-left ${
+                          selected
+                            ? 'border-primary/40 bg-primary/10'
+                            : 'border-border hover:bg-accent/20'
+                        }`}
+                      >
+                        <span
+                          className={`w-4 h-4 rounded-[3px] border flex items-center justify-center shrink-0 ${
+                            selected ? 'bg-primary border-primary' : 'border-border bg-surface-secondary'
+                          }`}
+                        >
+                          {selected && <Check className="w-2.5 h-2.5 text-primary-foreground" />}
+                        </span>
+                        <span className={selected ? 'text-primary font-medium' : 'text-foreground'}>{board.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </form>
-        </div>
-      )}
-
-      {showMilestoneModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={createMilestone} className="w-full max-w-md rounded-[6px] border border-border bg-card p-5 space-y-3">
-            <h2 className="text-[13px] font-semibold">Nuevo milestone</h2>
-            <input value={newMilestone.name} onChange={(e) => setNewMilestone((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" />
-            <textarea value={newMilestone.description} onChange={(e) => setNewMilestone((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripcion" rows={3} className="w-full rounded-[3px] border border-border bg-surface-secondary px-2 py-1 text-[11px]" />
-            <DatePickerField value={newMilestone.due_date} onChange={(value) => setNewMilestone((prev) => ({ ...prev, due_date: value }))} placeholder="Fecha limite" />
+            {/* Inline board creation */}
+            <div className="border-t border-border/60 pt-3">
+              {showCreateBoardInSprint ? (
+                <div className="rounded-[3px] border border-border bg-surface-secondary/40 p-2.5 space-y-2">
+                  <p className="text-[10px] font-medium text-foreground">Crear nuevo board</p>
+                  <div className="flex gap-1.5">
+                    <input
+                      value={newBoardInSprintName}
+                      onChange={(e) => setNewBoardInSprintName(e.target.value)}
+                      placeholder="Nombre del board"
+                      className="flex-1 h-7 rounded-[3px] border border-border bg-card px-2 text-[11px]"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void createBoardInSprint()}
+                      disabled={!newBoardInSprintName.trim() || creatingBoardInSprint}
+                      className="h-7 px-2.5 rounded-[3px] bg-primary text-primary-foreground text-[10px] disabled:opacity-50 inline-flex items-center gap-1"
+                    >
+                      {creatingBoardInSprint ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                      Crear
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowCreateBoardInSprint(false); setNewBoardInSprintName(''); }}
+                      className="h-7 w-7 rounded-[3px] border border-border text-muted-foreground hover:text-foreground inline-flex items-center justify-center"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-muted-foreground">Se crearán columnas por defecto: Revisión, Done.</p>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowCreateBoardInSprint(true)}
+                  className="h-7 px-2.5 rounded-[3px] border border-dashed border-border text-[11px] text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <Plus className="w-3 h-3" /> Crear nuevo board
+                </button>
+              )}
+            </div>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowMilestoneModal(false)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
+              <button type="button" onClick={() => { setShowSprintModal(false); setShowCreateBoardInSprint(false); setNewBoardInSprintName(''); }} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
               <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px]">Crear</button>
             </div>
           </form>

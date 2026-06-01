@@ -17,6 +17,7 @@ export interface ProjectCapabilities {
   canCreateRepos: boolean;
   isProjectManager: boolean;
   isProductOwner: boolean;
+  isScrumMaster: boolean;
   isStakeholder: boolean;
 }
 
@@ -99,18 +100,22 @@ export function getProjectCapabilities(
   const memberRoleId = currentUserMember?.role ?? null;
   const isProjectManager = memberRoleId != null && memberRoleId === roleIds.projectManagerId;
   const isProductOwner = memberRoleId != null && memberRoleId === roleIds.productOwnerId;
+  const isScrumMaster = memberRoleId != null && memberRoleId === roleIds.scrumMasterId;
   const isStakeholder = isStakeholderSystemUser(currentUserAccount)
     || (roleIds.stakeholderId != null && memberRoleId === roleIds.stakeholderId);
 
+  const isLeadRole = isProjectManager || isProductOwner || isScrumMaster;
+
   return {
     canAccessProject: Boolean(currentUserMember),
-    canManageProject: isProjectManager,
-    canManageMembers: isProjectManager,
-    canEditMemberRoles: isProjectManager,
-    canManageTasks: isProjectManager || isProductOwner,
+    canManageProject: isLeadRole,
+    canManageMembers: isLeadRole,
+    canEditMemberRoles: isLeadRole,
+    canManageTasks: isLeadRole,
     canCreateRepos: !isStakeholder,
     isProjectManager,
     isProductOwner,
+    isScrumMaster,
     isStakeholder,
   };
 }

@@ -4,7 +4,8 @@ import type { ApiProject } from './types';
 export interface CreateProjectPayload {
   name: string;
   description?: string;
-  end_date?: string;   // YYYY-MM-DD
+  start_date?: string;  // YYYY-MM-DD
+  end_date?: string;    // YYYY-MM-DD
   status?: string;
 }
 

@@ -24,8 +24,9 @@ export interface ApiProject {
   name: string;
   description: string | null;
   created_at: string;
-  end_date: string | null;   // ISO date YYYY-MM-DD
-  status: string | null;     // free-text e.g. "active", "on_hold", "completed"
+  start_date?: string | null;  // ISO date YYYY-MM-DD
+  end_date: string | null;     // ISO date YYYY-MM-DD
+  status: string | null;       // free-text e.g. "active", "on_hold", "completed"
   created_by: number | null;
   github_repo_full_name: string | null;
 }
@@ -50,6 +51,12 @@ export interface ApiBoard {
   name: string;
   description: string | null;
   created_at: string;
+  coding_style: string | null;
+  review_focus: string | null;
+  tech_stack: string | null;
+  naming_convention: string | null;
+  response_language: string | null;
+  custom_instructions: string | null;
 }
 
 export interface ApiTaskStatus {
@@ -85,6 +92,7 @@ export interface ApiTask {
   start_date?: string | null; // ISO date
   due_date: string | null;   // ISO date
   completed_at: string | null;
+  scrum_number?: string | null;
 
   // Legacy compatibility fields retained while frontend migrates.
   board?: number;
@@ -106,6 +114,12 @@ export interface ApiSprint {
   end_date: string | null;
   status: 'planned' | 'active' | 'closed';
   project: number;
+}
+
+export interface ApiSprintBoard {
+  id: number;
+  sprint: number;
+  board: number;
 }
 
 export interface ApiMilestone {
