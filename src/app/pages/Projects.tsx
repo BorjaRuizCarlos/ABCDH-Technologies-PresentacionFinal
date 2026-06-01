@@ -3,12 +3,14 @@ import { Link, useNavigate } from 'react-router';
 import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import {
-  Plus, Search, Calendar, X, LayoutGrid, List, Loader2, ArrowUpDown,
+  Plus, Search, Calendar, X, LayoutGrid, List, ArrowUpDown,
 } from 'lucide-react';
+import { Button } from '../components/ui/button';
 import { StatusBadge } from '../components/StatusBadge';
 import { DatePickerField } from '../components/DatePickerField';
 import { ProgressBar } from '../components/ProgressBar';
 import { useApiBoards, useApiProjectMembers, useApiProjects, useApiTasks } from '../hooks/useProjectData';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useAuth } from '../context/AuthContext';
 import { projectsService, usersService } from '../../services';
 import { compareProjectsForGenericPriority, getProjectStatusBadge, getProjectStatusLabel, isTerminalProjectStatus, normalizeProjectStatus, PROJECT_STATUS_OPTIONS } from '../utils/projectStatus';
@@ -29,6 +31,9 @@ const HEALTH_LABEL: Record<ProjectHealth, string> = {
 
 const PROJECTS_BATCH_SIZE = 8;
 type ProjectsSort = 'nearest_due' | 'farthest_due' | 'name_asc' | 'name_desc';
+
+// Plantilla de columnas compartida por header, filas y skeleton (mantiene la alineación).
+const TABLE_GRID = 'grid-cols-[minmax(0,2fr)_minmax(112px,0.9fr)_minmax(110px,1.1fr)_44px_minmax(110px,0.85fr)_minmax(78px,0.6fr)]';
 
 function getProjectsRemainingLabel(endDate: string | null, status?: string | null) {
   if (!endDate) return { label: '—', cls: 'text-muted-foreground' };
@@ -58,6 +63,7 @@ function getProjectsRemainingLabel(endDate: string | null, status?: string | nul
 
 export default function Projects() {
   const navigate = useNavigate();
+  const reduced = useReducedMotion();
   const { user } = useAuth();
   const membershipUserId = Number(user?.id ?? -1);
   const isAdminUser = user?.role === 'admin';
@@ -215,11 +221,12 @@ export default function Projects() {
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-4">
-      <div className="bg-card border border-border rounded-[4px] p-3 flex flex-col gap-3">
+      {/* Header sobre el lienzo (shell unificado, sin caja bg-card) */}
+      <div className="flex flex-col gap-3">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-3">
           <div>
-            <h1 className="text-[14px] font-semibold text-foreground">Proyectos</h1>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
+            <h1 className="text-lg font-semibold tracking-[-0.01em] text-foreground">Proyectos</h1>
+            <p className="text-[12px] text-muted-foreground mt-0.5">
               Busca, filtra y ordena proyectos activos por fecha de entrega.
             </p>
           </div>
@@ -235,7 +242,7 @@ export default function Projects() {
                   setSearchTerm(e.target.value);
                   setCurrentPage(0);
                 }}
-                className="w-full h-9 bg-surface-secondary border border-border rounded-[4px] pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                className="w-full h-9 bg-surface-secondary border border-border rounded-sm pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/60 transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
               />
             </div>
 
@@ -247,7 +254,7 @@ export default function Projects() {
                   setSortBy(e.target.value as ProjectsSort);
                   setCurrentPage(0);
                 }}
-                className="w-full h-9 bg-surface-secondary border border-border rounded-[4px] pl-8 pr-3 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20"
+                className="w-full h-9 bg-surface-secondary border border-border rounded-sm pl-8 pr-3 text-[12px] text-foreground transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
               >
                 <option value="nearest_due">Entrega más cercana</option>
                 <option value="farthest_due">Entrega más lejana</option>
@@ -256,11 +263,11 @@ export default function Projects() {
               </select>
             </div>
 
-            <div className="flex items-center border border-border rounded-[4px] overflow-hidden shrink-0">
+            <div className="flex items-center border border-border rounded-md overflow-hidden shrink-0 bg-card">
               <button
                 type="button"
                 onClick={() => setViewMode('list')}
-                className={`h-9 w-10 flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}
+                className={`h-9 w-10 flex items-center justify-center transition-colors ${viewMode === 'list' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}
                 title="Vista tabla"
               >
                 <List className="w-4 h-4" />
@@ -268,7 +275,7 @@ export default function Projects() {
               <button
                 type="button"
                 onClick={() => setViewMode('grid')}
-                className={`h-9 w-10 flex items-center justify-center transition-colors ${viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent hover:text-foreground'}`}
+                className={`h-9 w-10 flex items-center justify-center transition-colors ${viewMode === 'grid' ? 'bg-secondary text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}
                 title="Vista tarjetas"
               >
                 <LayoutGrid className="w-4 h-4" />
@@ -276,14 +283,15 @@ export default function Projects() {
             </div>
 
             {canCreateProjects && (
-              <button
+              <Button
                 type="button"
+                variant="primary-brand"
                 onClick={() => setShowCreateModal(true)}
-                className="h-9 px-4 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[4px] text-[12px] font-semibold inline-flex items-center justify-center gap-2 transition-colors shrink-0"
+                className="shrink-0"
               >
                 <Plus className="w-4 h-4" />
                 Nuevo Proyecto
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -292,10 +300,10 @@ export default function Projects() {
           <button
             type="button"
             onClick={() => { setStatusFilter('all'); setCurrentPage(0); }}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${statusFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-surface-secondary border border-border text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${statusFilter === 'all' ? 'bg-secondary text-foreground border border-border' : 'border border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'}`}
           >
             Todos
-            <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${statusFilter === 'all' ? 'bg-white/20 text-white' : 'bg-background text-muted-foreground'}`}>
+            <span className={`tabular-nums text-[10px] ${statusFilter === 'all' ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
               {visibleProjects.length}
             </span>
           </button>
@@ -305,10 +313,10 @@ export default function Projects() {
               key={status.value}
               type="button"
               onClick={() => { setStatusFilter(status.value); setCurrentPage(0); }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${statusFilter === status.value ? 'bg-primary text-primary-foreground' : 'bg-surface-secondary border border-border text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${statusFilter === status.value ? 'bg-secondary text-foreground border border-border' : 'border border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'}`}
             >
               {status.label}
-              <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${statusFilter === status.value ? 'bg-white/20 text-white' : 'bg-background text-muted-foreground'}`}>
+              <span className={`tabular-nums text-[10px] ${statusFilter === status.value ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
                 {statusCounts.get(status.value) ?? 0}
               </span>
             </button>
@@ -317,13 +325,33 @@ export default function Projects() {
       </div>
 
       {isLoadingPage ? (
-        <div className="flex items-center justify-center py-24 flex-1">
-          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        /* Skeleton con la silueta de la tabla (DESIGN.md §9; resuelve la queja del audit) */
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className={`grid ${TABLE_GRID} gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5`}>
+            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</span>
+            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
+            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Progreso</span>
+            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Salud</span>
+            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Fecha Fin</span>
+            <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Tiempo rest.</span>
+          </div>
+          <div className="divide-y divide-border">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className={`grid ${TABLE_GRID} items-center gap-3 px-4 py-2.5`}>
+                <div className="h-3 w-2/3 rounded-sm bg-surface-secondary animate-pulse" />
+                <div className="h-3 w-16 rounded-sm bg-surface-secondary animate-pulse" />
+                <div className="h-1.5 w-full rounded-full bg-surface-secondary animate-pulse" />
+                <div className="h-2.5 w-2.5 rounded-full bg-surface-secondary animate-pulse" />
+                <div className="h-3 w-14 rounded-sm bg-surface-secondary animate-pulse" />
+                <div className="h-3 w-10 rounded-sm bg-surface-secondary animate-pulse" />
+              </div>
+            ))}
+          </div>
         </div>
       ) : viewMode === 'list' ? (
         /* Table view */
-        <div className="bg-card border border-border rounded-[4px] overflow-hidden">
-          <div className="grid grid-cols-[minmax(0,2fr)_minmax(112px,0.9fr)_minmax(110px,1.1fr)_44px_minmax(110px,0.85fr)_minmax(78px,0.6fr)] gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5">
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className={`grid ${TABLE_GRID} gap-3 border-b border-border bg-surface-secondary/50 px-4 py-1.5`}>
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Proyecto</span>
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Estado</span>
             <span className="text-left text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">Progreso</span>
@@ -343,10 +371,10 @@ export default function Projects() {
                 <motion.button
                   key={project.id_project}
                   type="button"
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={reduced ? false : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.25, delay: i * 0.04, ease: 'easeOut' }}
-                  className="grid w-full grid-cols-[minmax(0,2fr)_minmax(112px,0.9fr)_minmax(110px,1.1fr)_44px_minmax(110px,0.85fr)_minmax(78px,0.6fr)] items-center gap-3 px-4 py-1.5 hover:bg-accent/30 transition-colors text-left"
+                  transition={{ duration: reduced ? 0 : 0.22, delay: reduced ? 0 : i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                  className={`grid w-full ${TABLE_GRID} items-center gap-3 px-4 py-2.5 hover:bg-surface-secondary transition-colors text-left`}
                   onClick={() => navigate(`/projects/${project.id_project}`)}
                 >
                   <div className="min-w-0">
@@ -394,14 +422,14 @@ export default function Projects() {
             return (
               <motion.div
                 key={project.id_project}
-                initial={{ opacity: 0, y: 18 }}
+                initial={reduced ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.35, delay: i * 0.06, ease: 'easeOut' }}
+                transition={{ duration: reduced ? 0 : 0.22, delay: reduced ? 0 : i * 0.04, ease: [0.16, 1, 0.3, 1] }}
                 className="min-h-0"
               >
                 <Link
                   to={`/projects/${project.id_project}`}
-                  className="bg-card border border-border hover:border-primary/40 transition-colors flex h-full min-h-[152px] flex-col rounded-[4px] p-3"
+                  className="bg-card border border-border hover:bg-surface-secondary transition-colors flex h-full min-h-[152px] flex-col rounded-lg p-3"
                 >
                   <div className="flex items-start justify-between mb-2 gap-2">
                     <div className="flex items-center gap-2 min-w-0">
@@ -447,7 +475,7 @@ export default function Projects() {
           })}
 
           {filteredProjects.length === 0 && (
-            <div className="bg-card/30 border border-dashed border-border rounded-[4px] min-h-[152px] p-4 flex items-center justify-center text-center md:col-span-2">
+            <div className="bg-card/30 border border-dashed border-border rounded-lg min-h-[152px] p-4 flex items-center justify-center text-center md:col-span-2">
               <div>
                 <p className="text-[12px] font-medium text-foreground">Sin proyectos para mostrar</p>
                 <p className="text-[11px] text-muted-foreground mt-1">No hay proyectos con los filtros actuales.</p>
@@ -458,7 +486,7 @@ export default function Projects() {
       )}
 
       {!isLoadingPage && filteredProjects.length > 0 && totalPages > 1 && (
-        <div className="flex items-center justify-between gap-3 bg-card border border-border rounded-[4px] px-4 py-3">
+        <div className="flex items-center justify-between gap-3 bg-card border border-border rounded-lg px-4 py-3">
           <p className="text-[11px] text-muted-foreground">
             Mostrando {currentPage * PROJECTS_BATCH_SIZE + 1}-{Math.min((currentPage + 1) * PROJECTS_BATCH_SIZE, filteredProjects.length)} de {filteredProjects.length} proyectos
           </p>
@@ -467,7 +495,7 @@ export default function Projects() {
               type="button"
               onClick={() => setCurrentPage((page) => Math.max(0, page - 1))}
               disabled={currentPage === 0}
-              className="h-7 px-3 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-surface-secondary transition-colors disabled:opacity-50"
+              className="h-7 px-3 border border-border rounded-sm text-[11px] font-medium text-foreground hover:bg-surface-secondary transition-colors disabled:opacity-50"
             >
               Anterior
             </button>
@@ -478,7 +506,7 @@ export default function Projects() {
               type="button"
               onClick={() => setCurrentPage((page) => Math.min(totalPages - 1, page + 1))}
               disabled={currentPage >= totalPages - 1}
-              className="h-7 px-3 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-surface-secondary transition-colors disabled:opacity-50"
+              className="h-7 px-3 border border-border rounded-sm text-[11px] font-medium text-foreground hover:bg-surface-secondary transition-colors disabled:opacity-50"
             >
               Siguiente
             </button>
@@ -489,12 +517,12 @@ export default function Projects() {
       {/* Create Project Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-          <div className="bg-card border border-border rounded-[4px] p-5 max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-xl shadow-e3 p-5 max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-[13px] font-semibold text-foreground">Nuevo Proyecto</h2>
-              <button onClick={() => setShowCreateModal(false)} className="inline-flex h-8 items-center justify-center rounded-[4px] border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary">
-                <X className="mr-1 w-3.5 h-3.5" /> Cerrar
-              </button>
+              <Button variant="outline" size="sm" type="button" onClick={() => setShowCreateModal(false)}>
+                <X className="w-4 h-4" /> Cerrar
+              </Button>
             </div>
 
             <form className="space-y-3" onSubmit={handleCreate}>
@@ -506,7 +534,7 @@ export default function Projects() {
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
                   placeholder="Ej: CRM Implementation"
-                  className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                  className="w-full h-9 bg-surface-secondary border border-border rounded-sm px-2.5 text-[12px] text-foreground placeholder:text-muted-foreground/60 transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
                 />
               </div>
 
@@ -517,7 +545,7 @@ export default function Projects() {
                   value={formDesc}
                   onChange={(e) => setFormDesc(e.target.value)}
                   placeholder="Objetivo y alcance del proyecto"
-                  className="w-full bg-surface-secondary border border-border rounded-[3px] px-2.5 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20 resize-none"
+                  className="w-full bg-surface-secondary border border-border rounded-sm px-2.5 py-1.5 text-[12px] text-foreground placeholder:text-muted-foreground/60 transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand resize-none"
                 />
               </div>
 
@@ -532,20 +560,22 @@ export default function Projects() {
               </div>
 
               <div className="flex gap-2 pt-2">
-                <button
+                <Button
                   type="button"
+                  variant="outline"
+                  className="flex-1"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 h-7 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-surface-secondary transition-colors"
                 >
                   Cancelar
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="primary-brand"
+                  className="flex-1"
                   disabled={creating}
-                  className="flex-1 h-7 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50"
                 >
                   {creating ? 'Creando…' : 'Crear'}
-                </button>
+                </Button>
               </div>
             </form>
           </div>
