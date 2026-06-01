@@ -110,16 +110,16 @@
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1); /* entradas */
   --ease-in: cubic-bezier(0.4, 0, 0.2, 1);   /* salidas */
 
-  /* ── Sidebar (riel oscuro cálido; activo en TM Red) ── */
-  --sidebar: hsl(224 28% 8%);
-  --sidebar-foreground: hsl(220 12% 70%);
-  --sidebar-primary: hsl(354 78% 58%);
+  /* ── Sidebar (sigue el tema; activo en TM Red) ── */
+  --sidebar: hsl(38 22% 96%);
+  --sidebar-foreground: hsl(222 22% 18%);
+  --sidebar-primary: hsl(354 70% 47%);
   --sidebar-primary-foreground: hsl(0 0% 100%);
-  --sidebar-accent: hsl(222 22% 14%);
-  --sidebar-accent-foreground: hsl(40 18% 92%);
-  --sidebar-border: hsl(220 14% 18%);
-  --sidebar-ring: hsl(354 78% 58% / 0.4);
-  --sidebar-muted: hsl(220 10% 50%);
+  --sidebar-accent: hsl(38 22% 91%);
+  --sidebar-accent-foreground: hsl(222 22% 14%);
+  --sidebar-border: hsl(38 16% 88%);
+  --sidebar-ring: hsl(354 70% 47% / 0.32);
+  --sidebar-muted: hsl(220 9% 45%);
 
   /* ── Layout ── */
   --sidebar-width: 220px;

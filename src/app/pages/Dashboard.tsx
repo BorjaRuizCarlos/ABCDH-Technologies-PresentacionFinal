@@ -8,7 +8,6 @@ import {
   Briefcase, ArrowRight, RefreshCw, CheckCircle2, Timer, ListChecks,
   AlertTriangle, GitCommit, Calendar, TrendingUp,
 } from 'lucide-react';
-import { CommandBar } from '../components/CommandBar';
 import { KPICard } from '../components/KPICard';
 import {
   useApiBoards, useApiProjectMembers, useApiProjects, useApiTasks,
@@ -305,20 +304,25 @@ export default function Dashboard() {
     { title: 'Tareas', value: kpis.totalTasks, subtitle: 'en tus proyectos', icon: <ListChecks className="w-4 h-4" /> },
     { title: 'Completadas', value: kpis.completed, subtitle: 'tareas terminadas', icon: <CheckCircle2 className="w-4 h-4" /> },
     { title: 'Pendientes', value: kpis.open, subtitle: 'tareas abiertas', icon: <Timer className="w-4 h-4" /> },
-    { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: kpis.overdue > 0 ? 'destructive' : undefined },
-    { title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas activas', icon: <TrendingUp className="w-4 h-4" />, accentColor: activeWarningsCount > 0 ? 'warning' : undefined },
+    { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" /> },
+    { title: 'Warnings', value: activeWarningsCount, subtitle: 'alertas activas', icon: <TrendingUp className="w-4 h-4" /> },
   ];
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-4">
-      <CommandBar
-        actions={[{ label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => refetchAll() }]}
-        rightSlot={
-          <span className="text-xs text-muted-foreground">
-            Hola, <span className="font-medium text-foreground">{firstName}</span>
-          </span>
-        }
-      />
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-lg font-semibold tracking-[-0.01em] text-foreground">
+          Hola, {firstName}
+        </h1>
+        <button
+          type="button"
+          onClick={() => refetchAll()}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-[13px] font-medium text-foreground transition-all [transition-timing-function:var(--ease-out)] hover:bg-accent active:scale-[0.98]"
+        >
+          <RefreshCw className="w-3.5 h-3.5" />
+          Actualizar
+        </button>
+      </div>
 
       {/* ───────── KPI Row ───────── */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">

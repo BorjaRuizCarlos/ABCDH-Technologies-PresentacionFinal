@@ -55,16 +55,16 @@ export default function Login() {
           <Link to="/" className="mb-14 flex items-center gap-2.5">
             <BrandMark />
             <span className="flex flex-col leading-tight">
-              <span className="text-sm font-semibold text-white">Tech Mahindra</span>
-              <span className="text-[11px] text-white/45">Project Intelligence</span>
+              <span className="text-sm font-semibold text-sidebar-foreground">Tech Mahindra</span>
+              <span className="text-[11px] text-sidebar-muted">Project Intelligence</span>
             </span>
           </Link>
 
-          <h2 className="mb-3 text-[26px] font-semibold leading-snug tracking-[-0.02em] text-white">
+          <h2 className="mb-3 text-[26px] font-semibold leading-snug tracking-[-0.02em] text-sidebar-foreground">
             Gestión inteligente de<br />
             <span className="text-brand">proyectos en tiempo real</span>
           </h2>
-          <p className="mb-10 max-w-sm text-sm leading-relaxed text-white/55">
+          <p className="mb-10 max-w-sm text-sm leading-relaxed text-sidebar-muted">
             Centraliza, monitorea y analiza el estado de tu portafolio. La plataforma corporativa
             que ejecutivos y equipos necesitan.
           </p>
@@ -76,15 +76,15 @@ export default function Login() {
                   {f.icon}
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-white">{f.title}</p>
-                  <p className="mt-0.5 text-[11px] text-white/45">{f.desc}</p>
+                  <p className="text-xs font-semibold text-sidebar-foreground">{f.title}</p>
+                  <p className="mt-0.5 text-[11px] text-sidebar-muted">{f.desc}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="text-[11px] text-white/35">© {new Date().getFullYear()} · Desarrollado por ABCDH Technologies para Tech Mahindra</p>
+        <p className="text-[11px] text-sidebar-muted">© {new Date().getFullYear()} · Desarrollado por ABCDH Technologies para Tech Mahindra</p>
       </div>
 
       {/* Right Panel — Form */}
