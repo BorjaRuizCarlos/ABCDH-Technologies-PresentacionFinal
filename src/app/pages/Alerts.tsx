@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import {
-  AlertTriangle, CheckCircle2, Clock, ExternalLink,
+  AlertTriangle, CheckCircle2, ExternalLink,
   RefreshCw, Loader2, Search, Trash2,
 } from 'lucide-react';
+import { motion } from 'motion/react';
 import { toast } from 'sonner';
-import { CommandBar } from '../components/CommandBar';
 import { StatusBadge } from '../components/StatusBadge';
 import { useApiBoards, useApiProjectMembers, useApiRoles, useApiTaskWarnings, useApiTasks } from '../hooks/useProjectData';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { useAuth } from '../context/AuthContext';
 import { getProjectCapabilities, getProjectRoleIds } from '../utils/projectPermissions';
 import { tasksService } from '../../services';
@@ -15,6 +16,7 @@ type SeverityFilter = 'all' | 'active' | 'resolved';
 
 export default function Alerts() {
   const { user } = useAuth();
+  const reduced = useReducedMotion();
   const { data: warnings, loading, refetch } = useApiTaskWarnings();
   const { data: tasks } = useApiTasks();
   const { data: boards } = useApiBoards();
@@ -150,166 +152,192 @@ export default function Alerts() {
     return groups;
   }, [filtered]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full gap-2 text-muted-foreground">
-        <Loader2 className="w-5 h-5 animate-spin" />
-        <span className="text-[13px]">Cargando alertas…</span>
-      </div>
-    );
-  }
+  const filterChips: { value: SeverityFilter; label: string; count: number }[] = [
+    { value: 'all', label: 'Todos', count: counts.total },
+    { value: 'active', label: 'Activos', count: counts.active },
+    { value: 'resolved', label: 'Resueltos', count: counts.resolved },
+  ];
 
   return (
-    <div className="flex flex-col h-full">
-      <CommandBar
-        actions={[
-          { label: 'Refrescar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: refetch },
-        ]}
-        filters={[
-          { label: 'Todos', active: severity === 'all', count: counts.total, onClick: () => setSeverity('all') },
-          { label: 'Activos', active: severity === 'active', count: counts.active, onClick: () => setSeverity('active') },
-          { label: 'Resueltos', active: severity === 'resolved', count: counts.resolved, onClick: () => setSeverity('resolved') },
-        ]}
-        rightSlot={
-          <div className="relative">
-            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Buscar alertas…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-7 pl-7 pr-2 text-[12px] bg-card border border-border rounded-[4px] text-foreground placeholder:text-muted-foreground w-48 focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-          </div>
-        }
-      />
+    <div className="px-4 pb-6 pt-3 max-w-[1600px] min-h-full flex flex-col gap-4">
 
-      <div className="flex-1 overflow-y-auto">
-        {/* Summary bar */}
-        <div className="flex items-center gap-4 px-6 py-3 border-b border-border bg-surface-secondary/50">
-          <div className="flex items-center gap-1.5">
-            <AlertTriangle className="w-3.5 h-3.5 text-warning" />
-            <span className="text-[12px] font-medium text-foreground">{counts.active}</span>
-            <span className="text-[11px] text-muted-foreground">activos</span>
+      {/* ── Header sobre el lienzo (shell unificado) ──────────────────────── */}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-lg font-semibold tracking-[-0.01em] text-foreground">Alertas</h1>
+            <p className="text-[12px] text-muted-foreground mt-0.5">Warnings de tareas: vencimientos, bloqueos y resoluciones.</p>
           </div>
-          <div className="flex items-center gap-1.5">
-            <CheckCircle2 className="w-3.5 h-3.5 text-success" />
-            <span className="text-[12px] font-medium text-foreground">{counts.resolved}</span>
-            <span className="text-[11px] text-muted-foreground">resueltos</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-muted-foreground" />
-            <span className="text-[12px] font-medium text-foreground">{counts.total}</span>
-            <span className="text-[11px] text-muted-foreground">total</span>
+
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-[220px]">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Buscar alertas…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Buscar alertas"
+                className="w-full h-9 bg-surface-secondary border border-border rounded-sm pl-8 pr-3 text-[12px] text-foreground placeholder:text-muted-foreground/60 transition-[box-shadow,border-color] focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={refetch}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 h-9 text-[12px] font-medium text-foreground transition-all [transition-timing-function:var(--ease-out)] hover:bg-accent active:scale-[0.98] shrink-0"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refrescar
+            </button>
           </div>
         </div>
 
-        {/* Warnings list */}
-        {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
-            <AlertTriangle className="w-8 h-8 mb-2 opacity-40" />
-            <span className="text-[13px]">
-              {searchQuery ? 'Sin resultados para la búsqueda' : 'No hay alertas'}
-            </span>
-          </div>
-        ) : (
-          <div>
-            {groupedWarnings.map((group) => (
-              <div key={group.label}>
-                <div className="sticky top-0 z-10 px-6 py-1.5 bg-surface-secondary/80 backdrop-blur-sm border-b border-border">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">{group.label}</span>
-                </div>
-                <div className="divide-y divide-border">
-                  {group.items.map((w) => {
-              const taskInfo = taskMap.get(w.task);
-              const isActive = w.status === 'active';
-              const isSelected = selectedWarning === w.id_warning;
-              const canDeleteWarning = canDeleteWarningInProject(taskInfo?.project ?? null);
-              const isDeleting = deletingWarningId === w.id_warning;
+        {/* Filter chips (conteos fusionados aquí; sin barra de stats duplicada) */}
+        <div className="flex flex-wrap gap-2">
+          {filterChips.map((chip) => {
+            const active = severity === chip.value;
+            return (
+              <button
+                key={chip.value}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setSeverity(chip.value)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium transition-colors ${active ? 'bg-secondary text-foreground border border-border' : 'border border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+              >
+                {chip.label}
+                <span className={`tabular-nums text-[10px] ${active ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
+                  {chip.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-              return (
-                <button
-                  key={w.id_warning}
-                  onClick={() => setSelectedWarning(isSelected ? null : w.id_warning)}
-                  className={`w-full text-left px-6 py-3 transition-colors hover:bg-accent/50 ${
-                    isSelected ? 'bg-accent/30' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="mt-0.5 shrink-0">
-                      {isActive ? (
-                        <AlertTriangle className="w-4 h-4 text-warning" />
-                      ) : (
-                        <CheckCircle2 className="w-4 h-4 text-success" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[12px] font-medium text-foreground">
-                          {w.message}
-                        </span>
-                        <StatusBadge
-                          status={isActive ? 'warning' : 'success'}
-                          text={isActive ? 'Activo' : 'Resuelto'}
-                          size="sm"
-                        />
-                      </div>
-                      <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
-                        {taskInfo && (
-                          <span className="flex items-center gap-1 truncate max-w-[200px]">
-                            <ExternalLink className="w-3 h-3 shrink-0" />
-                            Tarea: {taskInfo.title}
-                          </span>
-                        )}
-                        <span>{relativeTime(w.created_at)}</span>
-                        {w.resolved_at && (
-                          <span className="text-success">
-                            Resuelto {relativeTime(w.resolved_at)}
-                          </span>
-                        )}
-                      </div>
-                      {/* Expanded detail */}
-                      {isSelected && (
-                        <div className="mt-2 p-3 bg-card border border-border rounded-[4px] text-[11px] space-y-1">
-                          <div className="flex items-center justify-end mb-2">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                void handleDeleteWarning(w.id_warning, taskInfo?.project ?? null);
-                              }}
-                              disabled={!canDeleteWarning || isDeleting}
-                              className="inline-flex items-center gap-1.5 rounded-[4px] border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] font-medium text-destructive transition-colors disabled:cursor-not-allowed disabled:opacity-50 hover:bg-destructive/20"
-                            >
-                              {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
-                              Eliminar alerta
-                            </button>
-                          </div>
-                          <div><span className="text-muted-foreground">ID:</span> {w.id_warning}</div>
-                          <div><span className="text-muted-foreground">Tarea ID:</span> {w.task}</div>
-                          <div><span className="text-muted-foreground">Creado:</span> {new Date(w.created_at).toLocaleString('es-ES')}</div>
-                          {w.resolved_at && (
-                            <div><span className="text-muted-foreground">Resuelto:</span> {new Date(w.resolved_at).toLocaleString('es-ES')}</div>
-                          )}
-                          {w.resolved_in_push && (
-                            <div><span className="text-muted-foreground">Push de resolución:</span> #{w.resolved_in_push}</div>
-                          )}
-                          {!canDeleteWarning && (
-                            <div className="text-muted-foreground">Solo PM y PO del proyecto pueden eliminar esta alerta.</div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
+      {/* ── List ──────────────────────────────────────────────────────────── */}
+      {loading ? (
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="divide-y divide-border">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-start gap-3 px-4 py-3.5">
+                <div className="w-4 h-4 rounded-full bg-surface-secondary animate-pulse mt-0.5 shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 w-2/3 rounded-sm bg-surface-secondary animate-pulse" />
+                  <div className="h-2.5 w-1/3 rounded-sm bg-surface-secondary animate-pulse" />
                 </div>
               </div>
             ))}
           </div>
-        )}
-      </div>
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="bg-card border border-border rounded-lg flex flex-col items-center justify-center py-20 text-muted-foreground">
+          <AlertTriangle className="w-8 h-8 mb-2 opacity-40" />
+          <span className="text-[13px]">
+            {searchQuery ? 'Sin resultados para la búsqueda' : 'No hay alertas'}
+          </span>
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-lg overflow-hidden">
+          <div className="max-h-[640px] overflow-y-auto scrollbar-app">
+            {groupedWarnings.map((group) => (
+              <div key={group.label}>
+                <div className="sticky top-0 z-10 px-4 py-1.5 bg-surface-secondary/80 backdrop-blur-sm border-b border-border">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">{group.label}</span>
+                </div>
+                <div className="divide-y divide-border">
+                  {group.items.map((w, wi) => {
+                    const taskInfo = taskMap.get(w.task);
+                    const isActive = w.status === 'active';
+                    const isSelected = selectedWarning === w.id_warning;
+                    const canDeleteWarning = canDeleteWarningInProject(taskInfo?.project ?? null);
+                    const isDeleting = deletingWarningId === w.id_warning;
+
+                    return (
+                      <motion.button
+                        key={w.id_warning}
+                        initial={reduced ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: reduced ? 0 : 0.2, delay: reduced ? 0 : Math.min(wi, 10) * 0.03, ease: [0.16, 1, 0.3, 1] }}
+                        onClick={() => setSelectedWarning(isSelected ? null : w.id_warning)}
+                        className={`w-full text-left px-4 py-3 transition-colors hover:bg-surface-secondary ${
+                          isSelected ? 'bg-surface-secondary' : ''
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-0.5 shrink-0">
+                            {isActive ? (
+                              <AlertTriangle className="w-4 h-4 text-warning" />
+                            ) : (
+                              <CheckCircle2 className="w-4 h-4 text-success" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-[12px] font-medium text-foreground">
+                                {w.message}
+                              </span>
+                              <StatusBadge
+                                status={isActive ? 'warning' : 'success'}
+                                text={isActive ? 'Activo' : 'Resuelto'}
+                                size="sm"
+                              />
+                            </div>
+                            <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                              {taskInfo && (
+                                <span className="flex items-center gap-1 truncate max-w-[200px]">
+                                  <ExternalLink className="w-3 h-3 shrink-0" />
+                                  Tarea: {taskInfo.title}
+                                </span>
+                              )}
+                              <span>{relativeTime(w.created_at)}</span>
+                              {w.resolved_at && (
+                                <span className="text-success">
+                                  Resuelto {relativeTime(w.resolved_at)}
+                                </span>
+                              )}
+                            </div>
+                            {/* Expanded detail */}
+                            {isSelected && (
+                              <div className="mt-2 p-3 bg-surface-secondary/50 border border-border rounded-md text-[11px] space-y-1">
+                                <div className="flex items-center justify-end mb-2">
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void handleDeleteWarning(w.id_warning, taskInfo?.project ?? null);
+                                    }}
+                                    disabled={!canDeleteWarning || isDeleting}
+                                    className="inline-flex items-center gap-1.5 rounded-sm border border-destructive/30 bg-destructive/10 px-2 py-1 text-[10px] font-medium text-destructive transition-colors disabled:cursor-not-allowed disabled:opacity-50 hover:bg-destructive/20"
+                                  >
+                                    {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
+                                    Eliminar alerta
+                                  </button>
+                                </div>
+                                <div><span className="text-muted-foreground">ID:</span> {w.id_warning}</div>
+                                <div><span className="text-muted-foreground">Tarea ID:</span> {w.task}</div>
+                                <div><span className="text-muted-foreground">Creado:</span> {new Date(w.created_at).toLocaleString('es-ES')}</div>
+                                {w.resolved_at && (
+                                  <div><span className="text-muted-foreground">Resuelto:</span> {new Date(w.resolved_at).toLocaleString('es-ES')}</div>
+                                )}
+                                {w.resolved_in_push && (
+                                  <div><span className="text-muted-foreground">Push de resolución:</span> #{w.resolved_in_push}</div>
+                                )}
+                                {!canDeleteWarning && (
+                                  <div className="text-muted-foreground">Solo PM y PO del proyecto pueden eliminar esta alerta.</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
