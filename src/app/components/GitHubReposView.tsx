@@ -206,10 +206,10 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
   return (
     <>
       {/* Header */}
-      <div className="bg-card border border-border rounded-[4px] p-4 flex items-center justify-between">
+      <div className="bg-card border border-border rounded-md p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-[#24292e] rounded-full flex items-center justify-center">
-            <Github className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 bg-foreground rounded-full flex items-center justify-center">
+            <Github className="w-4 h-4 text-background" />
           </div>
           <div>
             <p className="text-[12px] font-semibold text-foreground">GitHub conectado</p>
@@ -238,7 +238,7 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
             setShowModal(true);
           }}
           disabled={!canCreateRepos}
-          className="flex items-center gap-1.5 px-2.5 py-1 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex items-center gap-1.5 px-2.5 py-1 bg-primary hover:bg-primary-hover text-primary-foreground rounded-sm text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus className="w-3 h-3" />
           Nuevo repo
@@ -246,7 +246,7 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
       </div>
 
       {/* Repos list */}
-      <div className="bg-card border border-border rounded-[4px] p-4 mt-2">
+      <div className="bg-card border border-border rounded-md p-4 mt-2">
         <h2 className="text-[12px] font-semibold text-foreground mb-3 pb-2.5 border-b border-border">
           Repositorios creados
         </h2>
@@ -282,7 +282,7 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
             {repos.map((repo) => (
               <div
                 key={repo.id_repo}
-                className="flex items-center justify-between py-2 px-3 border border-border rounded-[4px] hover:border-primary/30 transition-colors group"
+                className="flex items-center justify-between py-2 px-3 border border-border rounded-md hover:bg-surface-secondary transition-colors group"
               >
                 <div className="flex items-center gap-2 min-w-0">
                   {repo.private ? (
@@ -317,7 +317,7 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
       {/* Create Repo Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-card border border-border rounded-[6px] p-5 w-full max-w-sm shadow-xl mx-4">
+          <div className="bg-card border border-border rounded-xl p-5 w-full max-w-sm shadow-e3 mx-4">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Github className="w-4 h-4 text-foreground" />
@@ -325,7 +325,7 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
               </div>
               <button
                 onClick={() => { setShowModal(false); resetForm(); }}
-                className="inline-flex h-8 items-center justify-center rounded-[4px] border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary"
+                className="inline-flex h-8 items-center justify-center rounded-md border border-border bg-card px-3 text-[11px] font-medium text-foreground shadow-sm transition-colors hover:bg-surface-secondary"
               >
                 <X className="mr-1 w-4 h-4" /> Cerrar
               </button>
@@ -337,7 +337,7 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
                 <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
                   Organizacion
                 </label>
-                <div className="mt-1 w-full h-7 bg-muted/30 border border-border rounded-[3px] px-2.5 flex items-center">
+                <div className="mt-1 w-full h-7 bg-muted/30 border border-border rounded-sm px-2.5 flex items-center">
                   <span className="text-[11px] text-muted-foreground font-mono">{ORG_OWNER}</span>
                 </div>
               </div>
@@ -354,7 +354,7 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
                   onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateRepo()}
                   autoFocus
-                  className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
                 />
                 <p className="mt-1 text-[10px] text-muted-foreground">
                   Usa solo letras, numeros, punto, guion y guion bajo.
@@ -375,7 +375,7 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
                   placeholder="Descripcion del repositorio"
                   value={form.description}
                   onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-                  className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/30"
+                  className="mt-1 w-full h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
                 />
               </div>
 
@@ -406,14 +406,14 @@ export function GitHubReposView({ projectId, canCreateRepos = true }: GitHubRepo
               <button
                 onClick={() => { setShowModal(false); resetForm(); }}
                 disabled={creating}
-                className="px-3 py-1.5 border border-border rounded-[3px] text-[11px] text-foreground hover:bg-accent/30 transition-colors disabled:opacity-50"
+                className="px-3 py-1.5 border border-border rounded-sm text-[11px] text-foreground hover:bg-accent/30 transition-colors disabled:opacity-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleCreateRepo}
                 disabled={creating || Boolean(validateRepoName(form.name))}
-                className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-60"
+                className="px-3 py-1.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-sm text-[11px] font-medium transition-colors disabled:opacity-60"
               >
                 {creating ? 'Creando...' : 'Crear repositorio'}
               </button>

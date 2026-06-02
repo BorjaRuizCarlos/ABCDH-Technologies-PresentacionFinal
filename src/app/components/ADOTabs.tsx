@@ -28,7 +28,7 @@ export function ADOTabs({ tabs, activeTab, onTabChange, className = '' }: ADOTab
             className={`
               relative inline-flex shrink-0 items-center gap-1.5 px-3 py-2 text-[12px] font-medium transition-colors
               ${isActive
-                ? 'text-primary'
+                ? 'text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
               }
             `}
@@ -38,7 +38,7 @@ export function ADOTabs({ tabs, activeTab, onTabChange, className = '' }: ADOTab
             {tab.count != null && (
               <span className={`
                 inline-flex items-center justify-center min-w-[18px] h-[16px] rounded-full px-1 text-[10px] font-semibold
-                ${isActive ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground'}
+                ${isActive ? 'bg-secondary text-foreground' : 'bg-muted text-muted-foreground'}
               `}>
                 {tab.count}
               </span>

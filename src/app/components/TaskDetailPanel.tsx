@@ -412,12 +412,12 @@ export function TaskDetailPanel({
                 {!isEditingTask && canEditTask && (
                   <button
                     onClick={() => setIsEditingTask(true)}
-                    className="inline-flex items-center gap-1 h-6 px-2 border border-border rounded-[3px] text-[10px] text-muted-foreground hover:text-foreground"
+                    className="inline-flex items-center gap-1 h-6 px-2 border border-border rounded-sm text-[10px] text-muted-foreground hover:text-foreground"
                   >
                     <Pencil className="w-3 h-3" /> Editar
                   </button>
                 )}
-                <button onClick={onClose} className="p-1 rounded-[3px] hover:bg-surface-secondary transition-colors">
+                <button onClick={onClose} className="p-1 rounded-sm hover:bg-surface-secondary transition-colors">
                   <X className="w-3.5 h-3.5 text-muted-foreground" />
                 </button>
               </div>
@@ -435,7 +435,7 @@ export function TaskDetailPanel({
                       required
                       value={taskForm.title}
                       onChange={(e) => setTaskForm((prev) => ({ ...prev, title: e.target.value }))}
-                      className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                      className="w-full h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px]"
                     />
                   </div>
 
@@ -445,7 +445,7 @@ export function TaskDetailPanel({
                       rows={3}
                       value={taskForm.description}
                       onChange={(e) => setTaskForm((prev) => ({ ...prev, description: e.target.value }))}
-                      className="w-full bg-surface-secondary border border-border rounded-[3px] px-2.5 py-1.5 text-[11px] resize-none"
+                      className="w-full bg-surface-secondary border border-border rounded-sm px-2.5 py-1.5 text-[11px] resize-none"
                     />
                   </div>
 
@@ -454,7 +454,7 @@ export function TaskDetailPanel({
                     <select
                       value={taskForm.priority}
                       onChange={(e) => setTaskForm((prev) => ({ ...prev, priority: e.target.value }))}
-                      className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                      className="w-full h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px]"
                     >
                       <option value="">Sin prioridad</option>
                       {priorities.map((p) => (
@@ -499,21 +499,21 @@ export function TaskDetailPanel({
                         type="button"
                         onClick={handleDeleteTask}
                         disabled={deletingTask}
-                        className="h-7 px-3 border border-destructive/30 rounded-[3px] text-[11px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                        className="h-7 px-3 border border-destructive/30 rounded-sm text-[11px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
                       >
                         {deletingTask ? 'Eliminando…' : 'Eliminar'}
                       </button>
                     )}                    <button
                       type="button"
                       onClick={() => setIsEditingTask(false)}
-                      className="h-7 px-3 border border-border rounded-[3px] text-[11px]"
+                      className="h-7 px-3 border border-border rounded-sm text-[11px]"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={savingTask}
-                      className="h-7 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50"
+                      className="h-7 px-3 bg-primary text-primary-foreground rounded-sm text-[11px] disabled:opacity-50"
                     >
                       {savingTask ? 'Guardando...' : 'Guardar cambios'}
                     </button>
@@ -531,7 +531,7 @@ export function TaskDetailPanel({
               )}
 
               {/* Metadata */}
-              <div className="bg-surface-secondary/50 rounded-[4px] p-3 space-y-2">
+              <div className="bg-surface-secondary/50 rounded-md p-3 space-y-2">
                 {assignedNames.length > 0 && (
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] text-muted-foreground uppercase tracking-[0.06em]">Asignado</span>
@@ -566,7 +566,7 @@ export function TaskDetailPanel({
                     value={tagSearch}
                     onChange={(e) => setTagSearch(e.target.value)}
                     placeholder="Buscar tags..."
-                    className="w-full h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px]"
+                    className="w-full h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px]"
                     disabled={!canEditTask}
                   />
                   <div className="flex flex-wrap gap-1.5">
@@ -598,7 +598,7 @@ export function TaskDetailPanel({
                           type="button"
                           onClick={() => void handleAddTaskTag(tag.id_tag)}
                           disabled={savingTagId === tag.id_tag}
-                          className="inline-flex items-center gap-1 rounded-[3px] border border-border bg-card px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+                          className="inline-flex items-center gap-1 rounded-sm border border-border bg-card px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground disabled:opacity-50"
                         >
                           {savingTagId === tag.id_tag ? <Loader2 className="w-3 h-3 animate-spin" /> : <span className="h-2 w-2 rounded-full" style={{ backgroundColor: tag.color || '#56697f' }} />}
                           {tag.name}
@@ -610,7 +610,7 @@ export function TaskDetailPanel({
                     <button
                       type="button"
                       onClick={() => setShowNewTagForm(true)}
-                      className="inline-flex items-center gap-1 rounded-[3px] border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors mt-0.5"
+                      className="inline-flex items-center gap-1 rounded-sm border border-dashed border-border px-2 py-1 text-[10px] text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors mt-0.5"
                     >
                       <Plus className="w-3 h-3" /> Nuevo tag
                     </button>
@@ -632,7 +632,7 @@ export function TaskDetailPanel({
                   ) : (
                     <div className="space-y-2">
                       {comments.map((c) => (
-                        <div key={c.id_comment} className="p-2.5 bg-surface-secondary/50 rounded-[4px]">
+                        <div key={c.id_comment} className="p-2.5 bg-surface-secondary/50 rounded-md">
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[10px] font-medium text-foreground">
                               {c.user ? (userMap.get(c.user) ?? `User #${c.user}`) : 'Sistema'}
@@ -666,12 +666,12 @@ export function TaskDetailPanel({
                                 type="text"
                                 value={editingCommentContent}
                                 onChange={(e) => setEditingCommentContent(e.target.value)}
-                                className="w-full h-7 bg-card border border-border rounded-[3px] px-2 text-[11px]"
+                                className="w-full h-7 bg-card border border-border rounded-sm px-2 text-[11px]"
                               />
                               <div className="flex items-center gap-1.5">
                                 <button
                                   onClick={() => handleUpdateComment(c.id_comment)}
-                                  className="h-6 px-2 bg-primary text-primary-foreground rounded-[3px] text-[10px]"
+                                  className="h-6 px-2 bg-primary text-primary-foreground rounded-sm text-[10px]"
                                 >
                                   Guardar
                                 </button>
@@ -680,7 +680,7 @@ export function TaskDetailPanel({
                                     setEditingCommentId(null);
                                     setEditingCommentContent('');
                                   }}
-                                  className="h-6 px-2 border border-border rounded-[3px] text-[10px]"
+                                  className="h-6 px-2 border border-border rounded-sm text-[10px]"
                                 >
                                   Cancelar
                                 </button>
@@ -701,12 +701,12 @@ export function TaskDetailPanel({
                       value={newComment}
                       onChange={(e) => setNewComment(e.target.value)}
                       placeholder="Agregar comentario…"
-                      className="flex-1 h-7 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+                      className="flex-1 h-7 bg-surface-secondary border border-border rounded-sm px-2.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
                     />
                     <button
                       type="submit"
                       disabled={sendingComment || !newComment.trim()}
-                      className="h-7 px-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50"
+                      className="h-7 px-2.5 bg-primary hover:bg-primary-hover text-primary-foreground rounded-sm text-[11px] font-medium transition-colors disabled:opacity-50"
                     >
                       <Send className="w-3 h-3" />
                     </button>
@@ -722,7 +722,7 @@ export function TaskDetailPanel({
                   </span>
                   <button
                     onClick={onClose}
-                    className="px-3 py-1 bg-surface-secondary hover:bg-accent text-foreground text-[11px] font-medium rounded-[3px] transition-colors"
+                    className="px-3 py-1 bg-surface-secondary hover:bg-accent text-foreground text-[11px] font-medium rounded-sm transition-colors"
                   >
                     Cerrar
                   </button>
@@ -745,14 +745,14 @@ export function TaskDetailPanel({
                     ) : activeWarnings.length > 0 ? (
                       <div className="space-y-2">
                         {activeWarnings.map((w) => (
-                          <div key={w.id_warning} className="p-2.5 bg-warning/5 border border-warning/20 rounded-[4px]">
+                          <div key={w.id_warning} className="p-2.5 bg-warning/5 border border-warning/20 rounded-md">
                             <div className="flex items-start justify-between gap-2">
                               <p className="text-[11px] text-foreground leading-relaxed">{w.message}</p>
                               <button
                                 type="button"
                                 onClick={() => void handleDeleteWarning(w.id_warning)}
                                 disabled={!canEditTask || deletingWarningId === w.id_warning}
-                                className="inline-flex items-center gap-1 rounded-[3px] border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] text-destructive hover:bg-destructive/20 disabled:opacity-50"
+                                className="inline-flex items-center gap-1 rounded-sm border border-destructive/30 bg-destructive/10 px-2 py-0.5 text-[10px] text-destructive hover:bg-destructive/20 disabled:opacity-50"
                               >
                                 {deletingWarningId === w.id_warning ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />}
                                 Eliminar
@@ -766,7 +766,7 @@ export function TaskDetailPanel({
                       <p className="text-[11px] text-muted-foreground">Sin warnings activos.</p>
                     )}
 
-                    <div className="rounded-[4px] border border-dashed border-border p-3">
+                    <div className="rounded-md border border-dashed border-border p-3">
                       <p className="text-[10px] font-medium uppercase tracking-[0.06em] text-muted-foreground mb-1">Conexiones de codigo</p>
                       <p className="text-[11px] text-muted-foreground">Proximamente aqui apareceran referencias de commits, diffs y archivos relacionados a esta tarea.</p>
                     </div>
@@ -782,7 +782,7 @@ export function TaskDetailPanel({
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
           <form
             onSubmit={(e) => { e.preventDefault(); void handleCreateAndAddTag(); }}
-            className="w-full max-w-sm rounded-[8px] border border-border bg-card overflow-hidden shadow-lg"
+            className="w-full max-w-sm rounded-lg border border-border bg-card overflow-hidden shadow-lg"
           >
             <div className="px-4 py-3 border-b border-border">
               <h2 className="text-[13px] font-semibold text-foreground">Nuevo tag</h2>
@@ -795,7 +795,7 @@ export function TaskDetailPanel({
                   value={newTagName}
                   onChange={(e) => setNewTagName(e.target.value)}
                   placeholder="ej. Bug, Feature, Urgente…"
-                  className="w-full h-9 rounded-[4px] border border-border bg-surface-secondary px-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="w-full h-9 rounded-md border border-border bg-surface-secondary px-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
                   autoFocus
                 />
               </div>
@@ -809,14 +809,14 @@ export function TaskDetailPanel({
               <button
                 type="button"
                 onClick={() => { setShowNewTagForm(false); setNewTagName(''); setNewTagColor('#56697f'); }}
-                className="h-8 px-3 border border-border rounded-[4px] text-[11px] hover:bg-accent transition-colors"
+                className="h-8 px-3 border border-border rounded-md text-[11px] hover:bg-accent transition-colors"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={!newTagName.trim() || creatingTag}
-                className="h-8 px-3 bg-primary text-primary-foreground rounded-[4px] text-[11px] disabled:opacity-40 transition-opacity inline-flex items-center gap-1"
+                className="h-8 px-3 bg-primary text-primary-foreground rounded-md text-[11px] disabled:opacity-40 transition-opacity inline-flex items-center gap-1"
               >
                 {creatingTag ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                 Crear tag

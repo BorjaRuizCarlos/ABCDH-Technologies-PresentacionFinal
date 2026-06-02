@@ -69,7 +69,7 @@ function TaskCard({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       onClick={() => onOpen(task)}
-      className="rounded-[4px] border border-border bg-card p-2 text-[11px] cursor-pointer"
+      className="rounded-md border border-border bg-card p-2 text-[11px] cursor-pointer"
     >
       <div className="flex items-start gap-2">
         {draggable && (
@@ -559,13 +559,13 @@ export function ProjectTasksWorkspace({
       <div className="flex items-center gap-2">
         {/* Left: tab switcher (when not forced) */}
         {!forcedTab && (
-          <div className="flex items-center gap-1 rounded-[4px] border border-border bg-surface-secondary/40 p-1 shrink-0">
+          <div className="flex items-center gap-1 rounded-md border border-border bg-surface-secondary/40 p-1 shrink-0">
             {TAB_OPTIONS.map((tab) => (
               <button
                 key={tab}
                 type="button"
                 onClick={() => setActiveTab(tab)}
-                className={`h-7 px-3 rounded-[3px] text-[11px] font-medium capitalize ${activeTab === tab ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                className={`h-7 px-3 rounded-sm text-[11px] font-medium capitalize ${activeTab === tab ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
               >
                 {tab}
               </button>
@@ -582,14 +582,14 @@ export function ProjectTasksWorkspace({
                 value={backlogSearch}
                 onChange={(e) => setBacklogSearch(e.target.value)}
                 placeholder="Buscar tarea..."
-                className="h-8 w-48 rounded-[3px] border border-border bg-surface-secondary pl-7 pr-2 text-[11px] placeholder:text-muted-foreground/60"
+                className="h-8 w-48 rounded-sm border border-border bg-surface-secondary pl-7 pr-2 text-[11px] placeholder:text-muted-foreground/60"
               />
             </div>
             <div className="relative">
               <button
                 type="button"
                 onClick={() => setShowTagFilter((v) => !v)}
-                className={`h-8 px-2.5 rounded-[3px] border text-[11px] inline-flex items-center gap-1.5 transition-colors ${
+                className={`h-8 px-2.5 rounded-sm border text-[11px] inline-flex items-center gap-1.5 transition-colors ${
                   selectedTagIds.length > 0
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border text-muted-foreground hover:text-foreground'
@@ -604,14 +604,14 @@ export function ProjectTasksWorkspace({
                 )}
               </button>
               {showTagFilter && (
-                <div className="absolute left-0 top-full mt-1 z-20 rounded-[8px] border border-border bg-card shadow-md p-2.5 w-[320px] flex flex-col gap-2">
+                <div className="absolute left-0 top-full mt-1 z-20 rounded-lg border border-border bg-card shadow-md p-2.5 w-[320px] flex flex-col gap-2">
                   <div className="relative">
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground pointer-events-none" />
                     <input
                       value={tagFilterSearch}
                       onChange={(e) => setTagFilterSearch(e.target.value)}
                       placeholder="Buscar tags..."
-                      className="h-7 w-full rounded-[4px] border border-border bg-surface-secondary pl-7 pr-2 text-[11px] placeholder:text-muted-foreground/60"
+                      className="h-7 w-full rounded-md border border-border bg-surface-secondary pl-7 pr-2 text-[11px] placeholder:text-muted-foreground/60"
                     />
                   </div>
 
@@ -647,7 +647,7 @@ export function ProjectTasksWorkspace({
                     <button
                       type="button"
                       onClick={() => setSelectedTagIds([])}
-                      className="mt-0.5 h-7 px-2 rounded-[4px] text-[10px] text-muted-foreground hover:text-foreground border border-border text-left"
+                      className="mt-0.5 h-7 px-2 rounded-md text-[10px] text-muted-foreground hover:text-foreground border border-border text-left"
                     >
                       Limpiar filtros
                     </button>
@@ -668,7 +668,7 @@ export function ProjectTasksWorkspace({
               <button
                 type="button"
                 onClick={() => setShowBoardModal(true)}
-                className="h-8 px-3 rounded-[3px] bg-primary text-primary-foreground text-[11px] font-medium inline-flex items-center gap-1.5"
+                className="h-8 px-3 rounded-sm bg-primary text-primary-foreground text-[11px] font-medium inline-flex items-center gap-1.5"
               >
                 <LayoutDashboard className="w-3.5 h-3.5" /> Nuevo board
               </button>
@@ -676,17 +676,17 @@ export function ProjectTasksWorkspace({
                 type="button"
                 onClick={() => setShowColumnModal(true)}
                 disabled={!selectedBoardId}
-                className="h-8 px-3 rounded-[3px] border border-border text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40 hover:bg-accent/30 transition-colors"
+                className="h-8 px-3 rounded-sm border border-border text-[11px] inline-flex items-center gap-1.5 disabled:opacity-40 hover:bg-accent/30 transition-colors"
               >
                 <Plus className="w-3.5 h-3.5" /> Nueva columna
               </button>
             </>
           )}
           {canCreateBoards && activeTab === 'milestones' && (
-            <button type="button" onClick={() => setShowMilestoneModal(true)} className="h-8 px-3 rounded-[3px] border border-border text-[11px]">Nuevo milestone</button>
+            <button type="button" onClick={() => setShowMilestoneModal(true)} className="h-8 px-3 rounded-sm border border-border text-[11px]">Nuevo milestone</button>
           )}
           {canCreateTasks && activeTab === 'backlog' && (
-            <button type="button" onClick={() => { setNewTask((prev) => ({ ...prev, sprint: null })); setShowTaskModal(true); }} className="h-8 px-3 rounded-[3px] bg-primary text-primary-foreground text-[11px] font-medium inline-flex items-center gap-1">
+            <button type="button" onClick={() => { setNewTask((prev) => ({ ...prev, sprint: null })); setShowTaskModal(true); }} className="h-8 px-3 rounded-sm bg-primary text-primary-foreground text-[11px] font-medium inline-flex items-center gap-1">
               <Plus className="w-3.5 h-3.5" /> Nueva tarea
             </button>
           )}
@@ -700,7 +700,7 @@ export function ProjectTasksWorkspace({
       )}
 
       {!loading && activeTab === 'backlog' && (
-        <div className="rounded-[4px] border border-border bg-card overflow-auto">
+        <div className="rounded-md border border-border bg-card overflow-auto">
           <table className="w-full min-w-[920px] text-[11px]">
             <thead>
               <tr className="border-b border-border bg-surface-secondary/50">
@@ -765,7 +765,7 @@ export function ProjectTasksWorkspace({
                           setPushBoardId(null);
                           setPushColumnId(null);
                         }}
-                        className="h-6 px-2 rounded-[3px] border border-dashed border-border text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors inline-flex items-center gap-1"
+                        className="h-6 px-2 rounded-sm border border-dashed border-border text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors inline-flex items-center gap-1"
                       >
                         <Plus className="w-3 h-3" /> Mover
                       </button>
@@ -779,7 +779,7 @@ export function ProjectTasksWorkspace({
       )}
 
       {!loading && activeTab === 'sprints' && (
-        <div className="flex-1 min-h-0 flex overflow-hidden rounded-[4px] border border-border bg-card">
+        <div className="flex-1 min-h-0 flex overflow-hidden rounded-md border border-border bg-card">
           {/* Left: scrollable sprint selector */}
           <div className="w-[210px] flex-shrink-0 border-r border-border flex flex-col">
             <div className="px-3 py-2 border-b border-border flex items-center justify-between">
@@ -789,7 +789,7 @@ export function ProjectTasksWorkspace({
                   type="button"
                   onClick={() => { setNewSprint((prev) => ({ ...prev, start_date: sprintStartMinDate, end_date: '' })); setShowSprintModal(true); }}
                   disabled={noMoreSprintsAllowed}
-                  className="h-6 w-6 rounded-[4px] bg-primary text-primary-foreground shadow-sm hover:opacity-90 transition-opacity inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="h-6 w-6 rounded-md bg-primary text-primary-foreground shadow-sm hover:opacity-90 transition-opacity inline-flex items-center justify-center disabled:opacity-40 disabled:cursor-not-allowed"
                   title={noMoreSprintsAllowed ? 'No hay espacio para mas sprints' : 'Nuevo sprint'}
                 >
                   <Plus className="w-3.5 h-3.5" />
@@ -805,10 +805,10 @@ export function ProjectTasksWorkspace({
                     key={sprint.id_sprint}
                     type="button"
                     onClick={() => { setSelectedSprintId(sprint.id_sprint); const firstBoard = (boards ?? [])[0] ?? null; setSelectedBoardId(firstBoard ? firstBoard.id_board : null); }}
-                    className={`w-full text-left px-3 py-2.5 border-b border-border/40 last:border-0 transition-colors group ${
+                    className={`w-full text-left px-3 py-2.5 border-b border-border/40 last:border-0 border-l-2 transition-colors group ${
                       selectedSprintId === sprint.id_sprint
-                        ? 'bg-primary/10 text-primary'
-                        : 'hover:bg-accent/20 text-foreground'
+                        ? 'bg-surface-secondary text-foreground border-l-brand'
+                        : 'hover:bg-accent/20 text-foreground border-l-transparent'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-1">
@@ -820,7 +820,7 @@ export function ProjectTasksWorkspace({
                             e.stopPropagation();
                             setEditingSprint({ id: sprint.id_sprint, name: sprint.name, start_date: sprint.start_date ?? '', end_date: sprint.end_date ?? '', status: sprint.status });
                           }}
-                          className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded-[3px] border border-border bg-card text-muted-foreground hover:text-foreground inline-flex items-center justify-center shrink-0 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 h-5 w-5 rounded-sm border border-border bg-card text-muted-foreground hover:text-foreground inline-flex items-center justify-center shrink-0 transition-opacity"
                           title="Editar sprint"
                         >
                           <Pencil className="w-2.5 h-2.5" />
@@ -831,7 +831,7 @@ export function ProjectTasksWorkspace({
                       <span className={`text-[9px] px-1.5 py-0.5 rounded-full ${
                         sprint.status === 'active' ? 'bg-success/20 text-success' :
                         sprint.status === 'closed' ? 'bg-muted text-muted-foreground' :
-                        'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                        'bg-warning/15 text-warning'
                       }`}>
                         {sprint.status === 'active' ? 'Activo' : sprint.status === 'closed' ? 'Cerrado' : 'Planeado'}
                       </span>
@@ -858,7 +858,7 @@ export function ProjectTasksWorkspace({
                   <select
                     value={selectedBoardId ?? ''}
                     onChange={(e) => setSelectedBoardId(e.target.value ? Number(e.target.value) : null)}
-                    className="h-7 min-w-[200px] rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
+                    className="h-7 min-w-[200px] rounded-sm border border-border bg-surface-secondary px-2 text-[11px]"
                   >
                     <option value="">Todas las tareas</option>
                     {(boards ?? []).map((board) => (
@@ -867,7 +867,7 @@ export function ProjectTasksWorkspace({
                   </select>
                   <div className="flex-1" />
                   {selectedBoardId != null && (
-                    <div className="flex items-center rounded-[3px] border border-border overflow-hidden">
+                    <div className="flex items-center rounded-sm border border-border overflow-hidden">
                       <button
                         type="button"
                         onClick={() => setSprintViewMode('kanban')}
@@ -890,7 +890,7 @@ export function ProjectTasksWorkspace({
                     <button
                       type="button"
                       onClick={() => { setNewTask((prev) => ({ ...prev, sprint: selectedSprintId })); setShowTaskModal(true); }}
-                      className="h-7 px-2.5 rounded-[3px] bg-primary text-primary-foreground text-[10px] font-medium inline-flex items-center gap-1"
+                      className="h-7 px-2.5 rounded-sm bg-primary text-primary-foreground text-[10px] font-medium inline-flex items-center gap-1"
                     >
                       <Plus className="w-3 h-3" /> Nueva tarea
                     </button>
@@ -910,7 +910,7 @@ export function ProjectTasksWorkspace({
                           const colTasks = sprintTasks.filter((task) => task.board_column === column.id_column);
                           return (
                             <DroppableColumn key={column.id_column} id={`column-${column.id_column}`}>
-                              <div className="h-full rounded-[4px] border border-border bg-surface-secondary/40 p-2 flex flex-col min-h-0">
+                              <div className="h-full rounded-md border border-border bg-surface-secondary/40 p-2 flex flex-col min-h-0">
                                 <div className="mb-2 flex items-center justify-between">
                                   <p className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground">{column.name}</p>
                                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${column.is_final ? 'bg-success/20 text-success' : 'bg-card text-muted-foreground'}`}>{colTasks.length}</span>
@@ -935,14 +935,14 @@ export function ProjectTasksWorkspace({
                       </div>
                       <DragOverlay>
                         {activeDragId ? (
-                          <div className="rounded-[4px] border border-primary bg-card p-2 text-[11px] shadow-sm">
+                          <div className="rounded-md border border-primary bg-card p-2 text-[11px] shadow-sm">
                             {(tasks ?? []).find((task) => task.id_task === activeDragId)?.title ?? 'Tarea'}
                           </div>
                         ) : null}
                       </DragOverlay>
                     </DndContext>
                   ) : (
-                    <div className="rounded-[4px] border border-border bg-card overflow-auto h-full">
+                    <div className="rounded-md border border-border bg-card overflow-auto h-full">
                       <table className="w-full text-[11px]">
                         <thead>
                           <tr className="border-b border-border bg-surface-secondary/50">
@@ -966,7 +966,7 @@ export function ProjectTasksWorkspace({
                                   <td className="px-3 py-2.5">
                                     <div className="flex flex-wrap items-center gap-1.5">
                                       {colName && (
-                                        <span className="inline-flex items-center gap-1 rounded-[3px] border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                        <span className="inline-flex items-center gap-1 rounded-sm border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                                           {colName}
                                         </span>
                                       )}
@@ -1005,7 +1005,7 @@ export function ProjectTasksWorkspace({
 
       {!loading && activeTab === 'boards' && (
         <div className="grid lg:grid-cols-[260px_minmax(0,1fr)] gap-3 min-h-0 flex-1">
-          <div className="rounded-[4px] border border-border bg-card overflow-y-auto">
+          <div className="rounded-md border border-border bg-card overflow-y-auto">
             <div className="px-3 py-2 border-b border-border">
               <p className="text-[10px] uppercase tracking-[0.06em] text-muted-foreground font-medium">Boards</p>
             </div>
@@ -1018,17 +1018,17 @@ export function ProjectTasksWorkspace({
                     key={board.id_board}
                     type="button"
                     onClick={() => setSelectedBoardId(board.id_board)}
-                    className={`w-full text-left rounded-[4px] px-3 py-2 text-[11px] transition-colors ${
+                    className={`w-full text-left rounded-md border-l-2 px-3 py-2 text-[11px] transition-colors ${
                       selectedBoardId === board.id_board
-                        ? 'bg-primary text-primary-foreground'
-                        : 'hover:bg-accent/30 text-foreground'
+                        ? 'bg-surface-secondary text-foreground border-l-brand'
+                        : 'hover:bg-accent/30 text-foreground border-l-transparent'
                     }`}
                   >
                     <p className="font-medium">{board.name}</p>
                     {board.description && (
-                      <p className={`text-[10px] mt-0.5 ${selectedBoardId === board.id_board ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>{board.description}</p>
+                      <p className={`text-[10px] mt-0.5 text-muted-foreground`}>{board.description}</p>
                     )}
-                    <p className={`text-[9px] mt-1 ${selectedBoardId === board.id_board ? 'text-primary-foreground/60' : 'text-muted-foreground/70'}`}>
+                    <p className={`text-[9px] mt-1 text-muted-foreground/70`}>
                       {(boardColumnsByBoard.get(board.id_board) ?? []).length} columnas
                     </p>
                   </button>
@@ -1037,12 +1037,12 @@ export function ProjectTasksWorkspace({
             )}
           </div>
 
-          <div className="rounded-[4px] border border-border bg-card p-3 overflow-auto">
+          <div className="rounded-md border border-border bg-card p-3 overflow-auto">
             <h3 className="text-[12px] font-medium text-foreground mb-2">{selectedBoard ? selectedBoard.name : 'Selecciona un board'}</h3>
             {selectedBoard && (
               <div className="space-y-2">
                 {(boardColumnsByBoard.get(selectedBoard.id_board) ?? []).map((column) => (
-                  <div key={column.id_column} className="flex items-center justify-between rounded-[3px] border border-border bg-surface-secondary/40 px-2 py-1.5 text-[11px]">
+                  <div key={column.id_column} className="flex items-center justify-between rounded-sm border border-border bg-surface-secondary/40 px-2 py-1.5 text-[11px]">
                     <span>{column.order}. {column.name}</span>
                     <div className="flex items-center gap-2">
                       <button
@@ -1066,7 +1066,7 @@ export function ProjectTasksWorkspace({
                         {column.is_final && <Check className="w-3 h-3" />}
                         {column.is_final ? 'Final' : 'Marcar final'}
                       </button>
-                      <button type="button" onClick={() => { void tasksService.deleteBoardColumn(column.id_column).then(() => refetchColumns()); }} className="h-6 px-2 rounded-[3px] border border-destructive/30 text-destructive text-[10px]">Eliminar</button>
+                      <button type="button" onClick={() => { void tasksService.deleteBoardColumn(column.id_column).then(() => refetchColumns()); }} className="h-6 px-2 rounded-sm border border-destructive/30 text-destructive text-[10px]">Eliminar</button>
                     </div>
                   </div>
                 ))}
@@ -1077,7 +1077,7 @@ export function ProjectTasksWorkspace({
       )}
 
       {!loading && activeTab === 'milestones' && (
-        <div className="rounded-[4px] border border-border bg-card overflow-auto">
+        <div className="rounded-md border border-border bg-card overflow-auto">
           <table className="w-full text-[11px]">
             <thead>
               <tr className="border-b border-border bg-surface-secondary/50">
@@ -1100,7 +1100,7 @@ export function ProjectTasksWorkspace({
                       onClick={() => {
                         void tasksService.updateMilestone(milestone.id_milestone, { is_completed: !milestone.is_completed }).then(() => refetchMilestones());
                       }}
-                      className={`h-7 px-3 rounded-[3px] border text-[10px] ${milestone.is_completed ? 'border-success/30 text-success bg-success/10' : 'border-border text-muted-foreground'}`}
+                      className={`h-7 px-3 rounded-sm border text-[10px] ${milestone.is_completed ? 'border-success/30 text-success bg-success/10' : 'border-border text-muted-foreground'}`}
                     >
                       {milestone.is_completed ? (
                         <span className="inline-flex items-center gap-1"><Check className="w-3 h-3" />Completado</span>
@@ -1116,14 +1116,14 @@ export function ProjectTasksWorkspace({
 
       {showTaskModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={createTask} className="w-full max-w-2xl rounded-[6px] border border-border bg-card p-5 space-y-3">
+          <form onSubmit={createTask} className="w-full max-w-2xl rounded-lg border border-border bg-card p-5 space-y-3">
             <h2 className="text-[13px] font-semibold text-foreground">
               {newTask.sprint != null
                 ? `Nueva tarea - ${(sprints ?? []).find((s) => s.id_sprint === newTask.sprint)?.name ?? 'Sprint'}`
                 : 'Nueva tarea (Product Backlog)'}
             </h2>
-            <input value={newTask.title} onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))} placeholder="Titulo" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" />
-            <textarea value={newTask.description} onChange={(e) => setNewTask((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripcion" className="w-full rounded-[3px] border border-border bg-surface-secondary px-2 py-1 text-[11px]" rows={3} />
+            <input value={newTask.title} onChange={(e) => setNewTask((prev) => ({ ...prev, title: e.target.value }))} placeholder="Titulo" className="w-full h-8 rounded-sm border border-border bg-surface-secondary px-2 text-[11px]" />
+            <textarea value={newTask.description} onChange={(e) => setNewTask((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripcion" className="w-full rounded-sm border border-border bg-surface-secondary px-2 py-1 text-[11px]" rows={3} />
 
             <div className="grid md:grid-cols-2 gap-2">
               <DatePickerField
@@ -1136,7 +1136,7 @@ export function ProjectTasksWorkspace({
               <select
                 value={newTask.priority ?? ''}
                 onChange={(e) => setNewTask((prev) => ({ ...prev, priority: e.target.value ? Number(e.target.value) : null }))}
-                className="h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
+                className="h-8 rounded-sm border border-border bg-surface-secondary px-2 text-[11px]"
               >
                 <option value="">Selecciona prioridad</option>
                 {priorities.map((priority) => (
@@ -1181,8 +1181,8 @@ export function ProjectTasksWorkspace({
             )}
 
             <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={() => { setNewTask((prev) => ({ ...prev, sprint: null })); setShowTaskModal(false); }} className="h-8 px-3 rounded-[3px] border border-border text-[11px]">Cancelar</button>
-              <button type="submit" className="h-8 px-3 rounded-[3px] bg-primary text-primary-foreground text-[11px]">Crear</button>
+              <button type="button" onClick={() => { setNewTask((prev) => ({ ...prev, sprint: null })); setShowTaskModal(false); }} className="h-8 px-3 rounded-sm border border-border text-[11px]">Cancelar</button>
+              <button type="submit" className="h-8 px-3 rounded-sm bg-primary text-primary-foreground text-[11px]">Crear</button>
             </div>
           </form>
         </div>
@@ -1191,7 +1191,7 @@ export function ProjectTasksWorkspace({
       {/* Push task to sprint modal */}
       {pushingTaskId != null && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <div className="w-full max-w-sm rounded-[6px] border border-border bg-card p-5 space-y-3">
+          <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5 space-y-3">
             <div>
               <h2 className="text-[13px] font-semibold">Mover al sprint</h2>
               <p className="text-[11px] text-muted-foreground mt-0.5">Selecciona sprint y board. La tarea se colocara en la primera columna del board.</p>
@@ -1199,7 +1199,7 @@ export function ProjectTasksWorkspace({
             <select
               value={pushSprintId ?? ''}
               onChange={(e) => { setPushSprintId(e.target.value ? Number(e.target.value) : null); setPushBoardId(null); setPushColumnId(null); }}
-              className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
+              className="w-full h-8 rounded-sm border border-border bg-surface-secondary px-2 text-[11px]"
             >
               <option value="">Selecciona sprint</option>
               {(sprints ?? []).map((s) => (
@@ -1214,7 +1214,7 @@ export function ProjectTasksWorkspace({
                 const firstCol = boardId ? (boardColumnsByBoard.get(boardId) ?? [])[0] ?? null : null;
                 setPushColumnId(firstCol ? firstCol.id_column : null);
               }}
-              className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
+              className="w-full h-8 rounded-sm border border-border bg-surface-secondary px-2 text-[11px]"
             >
               <option value="">Selecciona board</option>
               {(boards ?? []).map((b) => (
@@ -1222,17 +1222,17 @@ export function ProjectTasksWorkspace({
               ))}
             </select>
             {pushBoardId != null && pushColumnId != null && (
-              <p className="text-[10px] text-muted-foreground bg-surface-secondary/60 rounded-[3px] px-2.5 py-1.5">
+              <p className="text-[10px] text-muted-foreground bg-surface-secondary/60 rounded-sm px-2.5 py-1.5">
                 Columna asignada: <span className="font-medium text-foreground">{(boardColumnsByBoard.get(pushBoardId) ?? []).find((c) => c.id_column === pushColumnId)?.name ?? '-'}</span>
               </p>
             )}
             <div className="flex justify-end gap-2 pt-1">
-              <button type="button" onClick={() => setPushingTaskId(null)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
+              <button type="button" onClick={() => setPushingTaskId(null)} className="h-8 px-3 border border-border rounded-sm text-[11px]">Cancelar</button>
               <button
                 type="button"
                 disabled={!pushSprintId || !pushBoardId || savingPush}
                 onClick={() => void handlePushTaskToSprint()}
-                className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50 inline-flex items-center gap-1"
+                className="h-8 px-3 bg-primary text-primary-foreground rounded-sm text-[11px] disabled:opacity-50 inline-flex items-center gap-1"
               >
                 {savingPush ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
                 Mover al sprint
@@ -1245,7 +1245,7 @@ export function ProjectTasksWorkspace({
       {/* Edit sprint modal */}
       {editingSprint && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={saveSprintEdit} className="w-full max-w-md rounded-[6px] border border-border bg-card p-5 space-y-3">
+          <form onSubmit={saveSprintEdit} className="w-full max-w-md rounded-lg border border-border bg-card p-5 space-y-3">
             <div>
               <h2 className="text-[13px] font-semibold">Editar {editingSprint.name}</h2>
             </div>
@@ -1267,15 +1267,15 @@ export function ProjectTasksWorkspace({
             <select
               value={editingSprint.status}
               onChange={(e) => setEditingSprint((prev) => prev ? { ...prev, status: e.target.value as 'planned' | 'active' | 'closed' } : null)}
-              className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
+              className="w-full h-8 rounded-sm border border-border bg-surface-secondary px-2 text-[11px]"
             >
               <option value="planned">Planeado</option>
               <option value="active">Activo</option>
               <option value="closed">Cerrado</option>
             </select>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setEditingSprint(null)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
-              <button type="submit" disabled={savingSprintEdit} className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px] disabled:opacity-50">
+              <button type="button" onClick={() => setEditingSprint(null)} className="h-8 px-3 border border-border rounded-sm text-[11px]">Cancelar</button>
+              <button type="submit" disabled={savingSprintEdit} className="h-8 px-3 bg-primary text-primary-foreground rounded-sm text-[11px] disabled:opacity-50">
                 {savingSprintEdit ? 'Guardando...' : 'Guardar'}
               </button>
             </div>
@@ -1285,13 +1285,13 @@ export function ProjectTasksWorkspace({
 
       {showBoardModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={createBoard} className="w-full max-w-md rounded-[6px] border border-border bg-card p-5 space-y-3">
+          <form onSubmit={createBoard} className="w-full max-w-md rounded-lg border border-border bg-card p-5 space-y-3">
             <h2 className="text-[13px] font-semibold">Nuevo board</h2>
-            <input value={newBoard.name} onChange={(e) => setNewBoard((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" />
-            <textarea value={newBoard.description} onChange={(e) => setNewBoard((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripcion" rows={3} className="w-full rounded-[3px] border border-border bg-surface-secondary px-2 py-1 text-[11px]" />
+            <input value={newBoard.name} onChange={(e) => setNewBoard((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre" className="w-full h-8 rounded-sm border border-border bg-surface-secondary px-2 text-[11px]" />
+            <textarea value={newBoard.description} onChange={(e) => setNewBoard((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripcion" rows={3} className="w-full rounded-sm border border-border bg-surface-secondary px-2 py-1 text-[11px]" />
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowBoardModal(false)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
-              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px]">Crear</button>
+              <button type="button" onClick={() => setShowBoardModal(false)} className="h-8 px-3 border border-border rounded-sm text-[11px]">Cancelar</button>
+              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-sm text-[11px]">Crear</button>
             </div>
           </form>
         </div>
@@ -1299,13 +1299,13 @@ export function ProjectTasksWorkspace({
 
       {showColumnModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={createColumn} className="w-full max-w-md rounded-[6px] border border-border bg-card p-5 space-y-3">
+          <form onSubmit={createColumn} className="w-full max-w-md rounded-lg border border-border bg-card p-5 space-y-3">
             <h2 className="text-[13px] font-semibold">Nueva columna</h2>
-            <input value={newColumn.name} onChange={(e) => setNewColumn((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" />
+            <input value={newColumn.name} onChange={(e) => setNewColumn((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre" className="w-full h-8 rounded-sm border border-border bg-surface-secondary px-2 text-[11px]" />
             <button
               type="button"
               onClick={() => setNewColumn((prev) => ({ ...prev, is_final: !prev.is_final }))}
-              className={`w-full rounded-[4px] border px-3 py-2 text-left transition-colors ${
+              className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
                 newColumn.is_final
                   ? 'border-success/30 bg-success/10'
                   : 'border-border bg-surface-secondary/40 hover:bg-surface-secondary/70'
@@ -1322,8 +1322,8 @@ export function ProjectTasksWorkspace({
               </div>
             </button>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowColumnModal(false)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
-              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px]">Crear</button>
+              <button type="button" onClick={() => setShowColumnModal(false)} className="h-8 px-3 border border-border rounded-sm text-[11px]">Cancelar</button>
+              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-sm text-[11px]">Crear</button>
             </div>
           </form>
         </div>
@@ -1331,13 +1331,13 @@ export function ProjectTasksWorkspace({
 
       {showSprintModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={createSprint} className="w-full max-w-md rounded-[6px] border border-border bg-card p-5 space-y-3">
+          <form onSubmit={createSprint} className="w-full max-w-md rounded-lg border border-border bg-card p-5 space-y-3">
             <div>
               <h2 className="text-[13px] font-semibold">Nuevo sprint</h2>
               <p className="text-[11px] text-muted-foreground mt-0.5">Se creara como <span className="font-medium text-foreground">Sprint {(sprints ?? []).length + 1}</span></p>
             </div>
             {latestSprintEndDate && (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-[3px] px-2.5 py-1.5">
+              <p className="text-[10px] text-warning bg-warning/10 rounded-sm px-2.5 py-1.5">
                 El sprint anterior termina el <strong>{latestSprintEndDate}</strong>. Este sprint debe iniciar el <strong>{sprintStartMinDate}</strong> o despues.
               </p>
             )}
@@ -1357,14 +1357,14 @@ export function ProjectTasksWorkspace({
                 maxDate={projectEndDate ?? undefined}
               />
             </div>
-            <select value={newSprint.status} onChange={(e) => setNewSprint((prev) => ({ ...prev, status: e.target.value as 'planned' | 'active' | 'closed' }))} className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]">
+            <select value={newSprint.status} onChange={(e) => setNewSprint((prev) => ({ ...prev, status: e.target.value as 'planned' | 'active' | 'closed' }))} className="w-full h-8 rounded-sm border border-border bg-surface-secondary px-2 text-[11px]">
               <option value="planned">Planeado</option>
               <option value="active">Activo</option>
               <option value="closed">Cerrado</option>
             </select>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowSprintModal(false)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
-              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px]">Crear</button>
+              <button type="button" onClick={() => setShowSprintModal(false)} className="h-8 px-3 border border-border rounded-sm text-[11px]">Cancelar</button>
+              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-sm text-[11px]">Crear</button>
             </div>
           </form>
         </div>
@@ -1372,14 +1372,14 @@ export function ProjectTasksWorkspace({
 
       {showMilestoneModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={createMilestone} className="w-full max-w-md rounded-[6px] border border-border bg-card p-5 space-y-3">
+          <form onSubmit={createMilestone} className="w-full max-w-md rounded-lg border border-border bg-card p-5 space-y-3">
             <h2 className="text-[13px] font-semibold">Nuevo milestone</h2>
-            <input value={newMilestone.name} onChange={(e) => setNewMilestone((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre" className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]" />
-            <textarea value={newMilestone.description} onChange={(e) => setNewMilestone((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripcion" rows={3} className="w-full rounded-[3px] border border-border bg-surface-secondary px-2 py-1 text-[11px]" />
+            <input value={newMilestone.name} onChange={(e) => setNewMilestone((prev) => ({ ...prev, name: e.target.value }))} placeholder="Nombre" className="w-full h-8 rounded-sm border border-border bg-surface-secondary px-2 text-[11px]" />
+            <textarea value={newMilestone.description} onChange={(e) => setNewMilestone((prev) => ({ ...prev, description: e.target.value }))} placeholder="Descripcion" rows={3} className="w-full rounded-sm border border-border bg-surface-secondary px-2 py-1 text-[11px]" />
             <DatePickerField value={newMilestone.due_date} onChange={(value) => setNewMilestone((prev) => ({ ...prev, due_date: value }))} placeholder="Fecha limite" />
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={() => setShowMilestoneModal(false)} className="h-8 px-3 border border-border rounded-[3px] text-[11px]">Cancelar</button>
-              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-[3px] text-[11px]">Crear</button>
+              <button type="button" onClick={() => setShowMilestoneModal(false)} className="h-8 px-3 border border-border rounded-sm text-[11px]">Cancelar</button>
+              <button type="submit" className="h-8 px-3 bg-primary text-primary-foreground rounded-sm text-[11px]">Crear</button>
             </div>
           </form>
         </div>
@@ -1387,7 +1387,7 @@ export function ProjectTasksWorkspace({
 
       {showTagModal && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
-          <form onSubmit={createTag} className="w-full max-w-sm rounded-[8px] border border-border bg-card overflow-hidden shadow-lg">
+          <form onSubmit={createTag} className="w-full max-w-sm rounded-lg border border-border bg-card overflow-hidden shadow-lg">
             {/* Header */}
             <div className="px-4 py-3 border-b border-border">
               <h2 className="text-[13px] font-semibold text-foreground">Nuevo tag</h2>
@@ -1403,7 +1403,7 @@ export function ProjectTasksWorkspace({
                   value={newTag.name}
                   onChange={(e) => setNewTag((prev) => ({ ...prev, name: e.target.value }))}
                   placeholder="ej. Bug, Feature, Urgente..."
-                  className="w-full h-9 rounded-[4px] border border-border bg-surface-secondary px-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
+                  className="w-full h-9 rounded-md border border-border bg-surface-secondary px-3 text-[12px] placeholder:text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-primary/50"
                   autoFocus
                 />
               </div>
@@ -1423,8 +1423,8 @@ export function ProjectTasksWorkspace({
 
             {/* Footer */}
             <div className="flex justify-end gap-2 px-4 py-3 border-t border-border bg-surface-secondary/30">
-              <button type="button" onClick={() => setShowTagModal(false)} className="h-8 px-3 border border-border rounded-[4px] text-[11px] hover:bg-accent transition-colors">Cancelar</button>
-              <button type="submit" disabled={!newTag.name.trim()} className="h-8 px-3 bg-primary text-primary-foreground rounded-[4px] text-[11px] disabled:opacity-40 transition-opacity">Crear tag</button>
+              <button type="button" onClick={() => setShowTagModal(false)} className="h-8 px-3 border border-border rounded-md text-[11px] hover:bg-accent transition-colors">Cancelar</button>
+              <button type="submit" disabled={!newTag.name.trim()} className="h-8 px-3 bg-primary text-primary-foreground rounded-md text-[11px] disabled:opacity-40 transition-opacity">Crear tag</button>
             </div>
           </form>
         </div>

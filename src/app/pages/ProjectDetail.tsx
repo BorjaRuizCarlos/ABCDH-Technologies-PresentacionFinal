@@ -21,6 +21,7 @@ import {
 import { projectsService, tasksService, usersService } from '../../services';
 import type { ApiProject, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../../services';
 import { useAuth } from '../context/AuthContext';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 import { GitHubReposView } from '../components/GitHubReposView';
 import { CodeReviewPanel } from '../components/CodeReviewPanel';
 import { ProjectTasksWorkspace } from '../components/ProjectTasksWorkspace.tsx';
@@ -41,6 +42,7 @@ export default function ProjectDetail() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const reduced = useReducedMotion();
   const projectId = Number(id) || 0;
 
   // ── Project ──────────────────────────────────────────────────────────────
@@ -492,7 +494,7 @@ export default function ProjectDetail() {
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1400px] min-h-full flex flex-col gap-3">
-      <section className="rounded-[6px] border border-border bg-card overflow-hidden">
+      <section className="flex flex-col">
         <CommandBar
           actions={[
             { label: 'Volver', icon: <ArrowLeft className="w-3.5 h-3.5" />, onClick: () => navigate('/projects') },
@@ -503,7 +505,7 @@ export default function ProjectDetail() {
         />
 
         {loading ? (
-          <div className="mx-4 my-3 h-14 animate-pulse bg-surface-secondary/50 rounded-[4px]" />
+          <div className="mx-4 my-3 h-14 animate-pulse bg-surface-secondary/50 rounded-md" />
         ) : project ? (
           <div className="px-4 pb-3 pt-2 border-b border-border">
             <h1 className="text-[16px] font-semibold text-foreground">{project.name}</h1>
@@ -548,9 +550,9 @@ export default function ProjectDetail() {
 
       <motion.div
         key={activeTab}
-        initial={{ opacity: 0, y: 6 }}
+        initial={reduced ? false : { opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: 'easeOut' }}
+        transition={{ duration: reduced ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
         className={activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones' || activeTab === 'timeline' ? 'flex-1 min-h-0 flex flex-col' : undefined}
       >
         {/* RESUMEN */}
@@ -571,9 +573,9 @@ export default function ProjectDetail() {
               ].map((card, i) => (
                 <motion.div
                   key={card.title}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={reduced ? false : { opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, delay: i * 0.05, ease: 'easeOut' }}
+                  transition={{ duration: reduced ? 0 : 0.22, delay: reduced ? 0 : i * 0.04, ease: [0.16, 1, 0.3, 1] }}
                 >
                   <KPICard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} accentColor={card.accentColor} />
                 </motion.div>
@@ -582,7 +584,7 @@ export default function ProjectDetail() {
 
             <div className="grid lg:grid-cols-1 gap-3">
               <div className="space-y-3">
-              <div className="bg-card border border-border rounded-[4px] p-4">
+              <div className="bg-card border border-border rounded-lg p-4">
                 <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2.5">
                   Información General
                 </h2>
@@ -608,7 +610,7 @@ export default function ProjectDetail() {
 
               {/* Completion progress bar */}
               {kpis.total > 0 && (
-                <div className="bg-card border border-border rounded-[4px] p-4">
+                <div className="bg-card border border-border rounded-lg p-4">
                   <div className="flex items-center justify-between mb-2">
                     <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
                       Avance
@@ -676,7 +678,7 @@ export default function ProjectDetail() {
 
         {/* EQUIPO */}
         {activeTab === 'equipo' && (
-          <div className="bg-card border border-border rounded-[4px] p-4">
+          <div className="bg-card border border-border rounded-lg p-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-3">
                 <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
@@ -695,7 +697,7 @@ export default function ProjectDetail() {
               {canManageMembers && (
                 <button
                   onClick={() => setShowAddMemberModal(true)}
-                  className="flex items-center gap-1.5 text-[11px] font-medium text-primary bg-primary/10 hover:bg-primary/20 px-2.5 py-1 rounded-[3px] transition-colors"
+                  className="flex items-center gap-1.5 text-[11px] font-medium text-foreground border border-border bg-card hover:bg-accent px-2.5 py-1 rounded-sm transition-colors"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   Agregar Miembro
@@ -720,10 +722,10 @@ export default function ProjectDetail() {
                   return (
                     <div
                       key={member.id}
-                      className="flex items-center justify-between py-2.5 px-3 rounded-[6px] border border-border/60 bg-surface-secondary/20 hover:bg-accent/30 transition-colors"
+                      className="flex items-center justify-between py-2.5 px-3 rounded-md border border-border/60 bg-surface-secondary/20 hover:bg-accent/30 transition-colors"
                     >
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[11px] font-medium">
+                        <div className="w-7 h-7 rounded-full bg-secondary text-foreground flex items-center justify-center text-[11px] font-medium">
                           {name.charAt(0).toUpperCase()}
                         </div>
                         <div>
@@ -737,13 +739,13 @@ export default function ProjectDetail() {
                                   setEditingMemberId(member.id);
                                   setEditingRoleId(member.role ?? null);
                                 }}
-                                className="h-6 px-2.5 text-[10px] font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-[3px] transition-colors"
+                                className="h-6 px-2.5 text-[10px] font-medium text-foreground border border-border bg-card hover:bg-accent rounded-sm transition-colors"
                               >
                                 Editar
                               </button>
                             )}
                             {member.role === projectRoleIds.projectManagerId && (
-                              <span className="inline-flex items-center rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                              <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2 py-0.5 text-[10px] font-semibold text-foreground">
                                 PM
                               </span>
                             )}
@@ -764,7 +766,7 @@ export default function ProjectDetail() {
                             type="button"
                             onClick={() => handleRemoveMember(member.id)}
                             disabled={removingMemberId === member.id}
-                            className="h-7 px-2 text-[10px] font-medium text-destructive border border-destructive/30 rounded-[3px] hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                            className="h-7 px-2 text-[10px] font-medium text-destructive border border-destructive/30 rounded-sm hover:bg-destructive/10 transition-colors disabled:opacity-50"
                           >
                             {removingMemberId === member.id ? 'Eliminando…' : 'Eliminar'}
                           </button>
@@ -780,7 +782,7 @@ export default function ProjectDetail() {
 
         {activeTab === 'configuracion' && (
           <div className="grid lg:grid-cols-[minmax(0,1fr)_320px] gap-3">
-            <div className="bg-card border border-border rounded-[4px] p-4">
+            <div className="bg-card border border-border rounded-lg p-4">
               <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-3">
                 Configuración del Proyecto
               </h2>
@@ -792,7 +794,7 @@ export default function ProjectDetail() {
                     value={projectStatus}
                     onChange={(e) => setProjectStatus(e.target.value)}
                     disabled={!canManageProject || savingProjectConfig}
-                    className="w-full h-8 bg-surface-secondary border border-border rounded-[3px] px-2.5 text-[12px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary/20 disabled:opacity-60"
+                    className="w-full h-8 bg-surface-secondary border border-border rounded-sm px-2.5 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand disabled:opacity-60"
                   >
                     {PROJECT_STATUS_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -820,7 +822,7 @@ export default function ProjectDetail() {
                   type="button"
                   onClick={handleProjectStatusSave}
                   disabled={!canManageProject || savingProjectConfig || !hasProjectConfigChanges}
-                  className="h-8 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50"
+                  className="h-8 px-3 bg-primary hover:bg-primary-hover text-primary-foreground rounded-md text-[11px] font-medium transition-colors disabled:opacity-50"
                 >
                   {savingProjectConfig ? 'Guardando…' : 'Guardar cambios'}
                 </button>
@@ -832,14 +834,14 @@ export default function ProjectDetail() {
             </div>
 
             <div className="space-y-3">
-              <div className="bg-card border border-border rounded-[4px] p-4">
+              <div className="bg-card border border-border rounded-lg p-4">
                 <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-1">Restricciones de equipo</h2>
                 <p className="text-[11px] text-muted-foreground mb-3">Por defecto solo se pueden agregar miembros con cuenta de GitHub conectada. Puedes desactivar esto temporalmente.</p>
                 <button
                   type="button"
                   disabled={!canManageProject}
                   onClick={() => setBypassGithubCheck((prev) => !prev)}
-                  className={`inline-flex items-center gap-2 h-8 px-3 rounded-[3px] text-[11px] font-medium border transition-colors disabled:opacity-50 ${
+                  className={`inline-flex items-center gap-2 h-8 px-3 rounded-sm text-[11px] font-medium border transition-colors disabled:opacity-50 ${
                     bypassGithubCheck
                       ? 'bg-warning/10 border-warning/40 text-warning hover:bg-warning/20'
                       : 'bg-card border-border text-muted-foreground hover:text-foreground hover:bg-accent'
@@ -850,7 +852,7 @@ export default function ProjectDetail() {
                 </button>
               </div>
 
-              <div className="bg-card border border-destructive/20 rounded-[4px] p-4 h-fit">
+              <div className="bg-card border border-destructive/20 rounded-lg p-4 h-fit">
               <h2 className="text-[10px] font-medium text-destructive uppercase tracking-[0.06em] mb-2">
                 Zona Peligrosa
               </h2>
@@ -861,7 +863,7 @@ export default function ProjectDetail() {
                 type="button"
                 onClick={handleDeleteProject}
                 disabled={!canManageProject || deletingProject}
-                className="h-8 px-3 bg-destructive hover:bg-destructive/90 text-white rounded-[3px] text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
+                className="h-8 px-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-md text-[11px] font-medium transition-colors disabled:opacity-50 inline-flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 {deletingProject ? 'Eliminando…' : 'Eliminar proyecto'}
@@ -894,7 +896,7 @@ export default function ProjectDetail() {
 
       {editingMemberId != null && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6">
-          <div className="bg-card border border-border rounded-[6px] p-5 max-w-sm w-full shadow-xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border border-border rounded-xl shadow-e3 p-5 max-w-sm w-full" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-[13px] font-semibold text-foreground mb-4">Cambiar rol del miembro</h2>
             {(() => {
               const member = (members ?? []).find((m) => m.id === editingMemberId);
@@ -908,7 +910,7 @@ export default function ProjectDetail() {
                     <select
                       value={editingRoleId ?? ''}
                       onChange={(e) => setEditingRoleId(e.target.value ? Number(e.target.value) : null)}
-                      className="w-full h-9 bg-surface-secondary border border-border rounded-[4px] px-3 text-[12px] text-foreground"
+                      className="w-full h-9 bg-surface-secondary border border-border rounded-sm px-3 text-[12px] text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-brand"
                     >
                       {allowedRoleIds.map((roleId) => (
                         <option key={roleId} value={roleId}>{roleMap.get(roleId) ?? `Rol #${roleId}`}</option>
@@ -919,7 +921,7 @@ export default function ProjectDetail() {
                     <button
                       type="button"
                       onClick={() => setEditingMemberId(null)}
-                      className="flex-1 h-8 border border-border rounded-[3px] text-[11px] font-medium text-foreground hover:bg-accent/30 transition-colors"
+                      className="flex-1 h-8 border border-border rounded-sm text-[11px] font-medium text-foreground hover:bg-accent/30 transition-colors"
                     >
                       Cancelar
                     </button>
@@ -932,7 +934,7 @@ export default function ProjectDetail() {
                         }
                       }}
                       disabled={updatingMemberRoleId === editingMemberId}
-                      className="flex-1 h-8 bg-primary text-primary-foreground rounded-[3px] text-[11px] font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
+                      className="flex-1 h-8 bg-primary text-primary-foreground rounded-md text-[11px] font-medium hover:bg-primary-hover transition-colors disabled:opacity-50"
                     >
                       {updatingMemberRoleId === editingMemberId ? 'Actualizando…' : 'Guardar'}
                     </button>
