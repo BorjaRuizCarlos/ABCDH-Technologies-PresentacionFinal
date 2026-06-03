@@ -9,7 +9,6 @@ import { motion } from 'motion/react';
 import { StatusBadge } from '../components/StatusBadge';
 import { DatePickerField } from '../components/DatePickerField';
 import { KPICard } from '../components/KPICard';
-import { CommandBar } from '../components/CommandBar';
 import { ADOTabs } from '../components/ADOTabs';
 import { AvatarGroup } from '../components/AvatarGroup';
 import { ProgressBar } from '../components/ProgressBar';
@@ -423,14 +422,14 @@ export default function ProjectDetail() {
 
   type ProjectWorkspaceTab = 'backlog' | 'sprints' | 'boards' | 'milestones';
 
-  const [activeTab, setActiveTab] = useState<'resumen' | ProjectWorkspaceTab | 'timeline' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
+  const [activeTab, setActiveTab] = useState<ProjectWorkspaceTab | 'timeline' | 'code-review' | 'repositorios' | 'equipo' | 'configuracion'>(() => {
     if (initialQueryTab === 'tareas' || initialQueryTab === 'backlog') return 'backlog';
     if (initialQueryTab === 'sprints') return 'sprints';
     if (initialQueryTab === 'boards') return 'boards';
     if (initialQueryTab === 'milestones') return 'milestones';
     if (initialQueryTab === 'timeline') return 'timeline';
     if (initialQueryTab === 'configuracion') return 'configuracion';
-    return 'resumen';
+    return 'backlog';
   });
   const [initialTaskId, setInitialTaskId] = useState<number | null>(
     initialQueryTab === 'tareas' || initialQueryTab === 'backlog' || initialQueryTab === 'sprints' || initialQueryTab === 'boards' || initialQueryTab === 'milestones' || initialQueryTab === 'timeline'
@@ -461,7 +460,7 @@ export default function ProjectDetail() {
 
   useEffect(() => {
     if (!canManageProject && activeTab === 'configuracion') {
-      setActiveTab('resumen');
+      setActiveTab('backlog');
     }
   }, [canManageProject, activeTab]);
 
@@ -494,25 +493,50 @@ export default function ProjectDetail() {
 
   return (
     <div className="px-4 pb-6 pt-3 max-w-[1400px] min-h-full flex flex-col gap-3">
-      <section className="flex flex-col">
-        <CommandBar
-          actions={[
-            { label: 'Volver', icon: <ArrowLeft className="w-3.5 h-3.5" />, onClick: () => navigate('/projects') },
-            { label: 'Actualizar', icon: <RefreshCw className="w-3.5 h-3.5" />, onClick: () => { refetchTasks(); refetchMembers(); refetchBoards(); } },
-            ...(canManageProject ? [{ label: 'Asignar responsable', icon: <UserPlus className="w-3.5 h-3.5" />, onClick: () => setShowAssignModal(true) }] : []),
-          ]}
-          rightSlot={project ? <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" /> : null}
-        />
+      {/* Header sobre el lienzo (sin caja/CommandBar) */}
+      <div className="flex flex-col gap-3">
+        {/* Acciones + estado */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => navigate('/projects')}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 h-8 text-[12px] font-medium text-foreground hover:bg-accent active:scale-[0.98] transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Volver
+            </button>
+            <button
+              type="button"
+              onClick={() => { refetchTasks(); refetchMembers(); refetchBoards(); }}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 h-8 text-[12px] font-medium text-foreground hover:bg-accent active:scale-[0.98] transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Actualizar
+            </button>
+            {canManageProject && (
+              <button
+                type="button"
+                onClick={() => setShowAssignModal(true)}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2.5 h-8 text-[12px] font-medium text-foreground hover:bg-accent active:scale-[0.98] transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" /> Asignar responsable
+              </button>
+            )}
+          </div>
+          {project && (
+            <StatusBadge status={getProjectStatusBadge(project.status)} text={getProjectStatusLabel(project.status)} size="sm" />
+          )}
+        </div>
 
+        {/* Título + meta */}
         {loading ? (
-          <div className="mx-4 my-3 h-14 animate-pulse bg-surface-secondary/50 rounded-md" />
+          <div className="h-14 animate-pulse bg-surface-secondary/50 rounded-md" />
         ) : project ? (
-          <div className="px-4 pb-3 pt-2 border-b border-border">
-            <h1 className="text-[16px] font-semibold text-foreground">{project.name}</h1>
+          <div>
+            <h1 className="text-lg font-semibold tracking-[-0.01em] text-foreground">{project.name}</h1>
             {project.description && (
               <p className="text-[12px] text-muted-foreground mt-0.5 line-clamp-2">{project.description}</p>
             )}
-            <div className="flex flex-wrap items-center gap-4 mt-2 text-[11px] text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-4 mt-1.5 text-[11px] text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="w-3 h-3" />Inicio: {formatProjectDate(project.created_at)}
               </span>
@@ -528,25 +552,59 @@ export default function ProjectDetail() {
           </div>
         ) : null}
 
-        <div className="px-3">
-          <ADOTabs
-            tabs={[
-              { id: 'resumen', label: 'Overview' },
-              { id: 'backlog', label: 'Backlog' },
-              { id: 'timeline', label: 'Timeline' },
-              { id: 'sprints', label: 'Sprints' },
-              { id: 'boards', label: 'Boards' },
-              { id: 'milestones', label: 'Milestones' },
-              { id: 'code-review', label: 'Code Review' },
-              { id: 'repositorios', label: 'Repositorios' },
-              { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
-              ...(canManageProject ? [{ id: 'configuracion', label: 'Configuración', icon: <Settings2 className="w-3.5 h-3.5" /> }] : []),
-            ]}
-            activeTab={activeTab}
-            onTabChange={(id) => setActiveTab(id as typeof activeTab)}
-          />
-        </div>
-      </section>
+        {/* Resumen del proyecto (KPIs sin barra de acento + avance) — antes era la pestaña Overview */}
+        {project && (
+          <>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+              {[
+                { title: 'Tareas', value: kpis.total, subtitle: 'en todo el proyecto', icon: <List className="w-4 h-4" /> },
+                { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" /> },
+                { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" /> },
+                { title: 'Tiempo Restante', value: timeRemainingLabel, subtitle: formatProjectDate(project?.end_date), icon: <Clock className="w-4 h-4" /> },
+              ].map((card, i) => (
+                <motion.div
+                  key={card.title}
+                  initial={reduced ? false : { opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: reduced ? 0 : 0.22, delay: reduced ? 0 : i * 0.04, ease: [0.16, 1, 0.3, 1] }}
+                >
+                  <KPICard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} />
+                </motion.div>
+              ))}
+            </div>
+
+            {kpis.total > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] shrink-0">Avance</span>
+                <ProgressBar value={Math.round((kpis.completed / kpis.total) * 100)} height={6} className="flex-1" />
+                <span className="text-[12px] font-semibold text-foreground tabular-nums shrink-0">
+                  {Math.round((kpis.completed / kpis.total) * 100)}%
+                </span>
+                <span className="hidden sm:inline text-[11px] text-muted-foreground shrink-0">
+                  {kpis.completed} de {kpis.total} tareas
+                </span>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Tabs (sin Overview) */}
+        <ADOTabs
+          tabs={[
+            { id: 'backlog', label: 'Backlog' },
+            { id: 'timeline', label: 'Timeline' },
+            { id: 'sprints', label: 'Sprints' },
+            { id: 'boards', label: 'Boards' },
+            { id: 'milestones', label: 'Milestones' },
+            { id: 'code-review', label: 'Code Review' },
+            { id: 'repositorios', label: 'Repositorios' },
+            { id: 'equipo', label: 'Equipo', count: (members ?? []).length },
+            ...(canManageProject ? [{ id: 'configuracion', label: 'Configuración', icon: <Settings2 className="w-3.5 h-3.5" /> }] : []),
+          ]}
+          activeTab={activeTab}
+          onTabChange={(id) => setActiveTab(id as typeof activeTab)}
+        />
+      </div>
 
       <motion.div
         key={activeTab}
@@ -555,81 +613,6 @@ export default function ProjectDetail() {
         transition={{ duration: reduced ? 0 : 0.2, ease: [0.16, 1, 0.3, 1] }}
         className={activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones' || activeTab === 'timeline' ? 'flex-1 min-h-0 flex flex-col' : undefined}
       >
-        {/* RESUMEN */}
-        {activeTab === 'resumen' && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
-              {[
-                { title: 'Tareas', value: kpis.total, subtitle: 'en todo el proyecto', icon: <List className="w-4 h-4" />, accentColor: 'info' as const },
-                { title: 'Completadas', value: kpis.completed, subtitle: 'finalizadas', icon: <CheckCircle2 className="w-4 h-4" />, accentColor: 'success' as const },
-                { title: 'Vencidas', value: kpis.overdue, subtitle: 'requieren atención', icon: <AlertTriangle className="w-4 h-4" />, accentColor: 'destructive' as const },
-                {
-                  title: 'Tiempo Restante',
-                  value: timeRemainingLabel,
-                  subtitle: formatProjectDate(project?.end_date),
-                  icon: <Clock className="w-4 h-4" />,
-                  accentColor: 'warning' as const,
-                },
-              ].map((card, i) => (
-                <motion.div
-                  key={card.title}
-                  initial={reduced ? false : { opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: reduced ? 0 : 0.22, delay: reduced ? 0 : i * 0.04, ease: [0.16, 1, 0.3, 1] }}
-                >
-                  <KPICard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} accentColor={card.accentColor} />
-                </motion.div>
-              ))}
-            </div>
-
-            <div className="grid lg:grid-cols-1 gap-3">
-              <div className="space-y-3">
-              <div className="bg-card border border-border rounded-lg p-4">
-                <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em] mb-2.5">
-                  Información General
-                </h2>
-                {project ? (
-                  <dl className="grid grid-cols-2 gap-x-6 gap-y-2.5">
-                    {[
-                      { label: 'Estado', value: getProjectStatusLabel(project.status) },
-                      { label: 'Creado', value: formatProjectDate(project.created_at) },
-                      { label: 'Fecha fin', value: formatProjectDate(project.end_date) },
-                      { label: 'Tiempo restante', value: timeRemainingLabel },
-                      { label: 'Miembros', value: `${kpis.memberCount} personas` },
-                    ].map((item) => (
-                      <div key={item.label}>
-                        <dt className="text-[10px] text-muted-foreground">{item.label}</dt>
-                        <dd className="text-[13px] font-medium text-foreground mt-0.5">{item.value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                ) : (
-                  <div className="h-20 animate-pulse bg-secondary rounded" />
-                )}
-              </div>
-
-              {/* Completion progress bar */}
-              {kpis.total > 0 && (
-                <div className="bg-card border border-border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-[10px] font-medium text-muted-foreground uppercase tracking-[0.06em]">
-                      Avance
-                    </h2>
-                    <span className="text-[12px] font-semibold text-foreground">
-                      {Math.round((kpis.completed / kpis.total) * 100)}%
-                    </span>
-                  </div>
-                  <ProgressBar value={Math.round((kpis.completed / kpis.total) * 100)} height={6} />
-                  <p className="text-[10px] text-muted-foreground mt-1.5">
-                    {kpis.completed} de {kpis.total} tareas completadas
-                  </p>
-                </div>
-              )}
-              </div>
-            </div>
-          </div>
-        )}
-
         {/* WORKSPACE TABS */}
         {(activeTab === 'backlog' || activeTab === 'sprints' || activeTab === 'boards' || activeTab === 'milestones') && (
           <div className="flex-1 min-h-0 flex flex-col">
