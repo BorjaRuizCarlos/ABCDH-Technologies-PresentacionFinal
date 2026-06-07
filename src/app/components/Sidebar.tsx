@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router';
 import {
   LayoutGrid,
   Briefcase,
+  ListChecks,
   CircleUser,
   SlidersHorizontal,
   ChevronLeft,
@@ -27,6 +28,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutGrid, group: 'main' },
   { name: 'Proyectos', path: '/projects', icon: Briefcase, group: 'main' },
+  { name: 'Backlog', path: '/backlog', icon: ListChecks, group: 'main' },
   { name: 'Reportes', path: '/reports', icon: BarChart3, group: 'analytics', roles: ['admin', 'project_manager'] },
   { name: 'Alertas', path: '/alerts', icon: Bell, group: 'analytics', roles: ['admin', 'project_manager'] },
 

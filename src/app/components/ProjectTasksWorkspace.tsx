@@ -13,7 +13,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Calendar, Check, Filter, GripVertical, LayoutDashboard, LayoutList, Loader2, Lock, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { ArrowRightLeft, Calendar, Check, Filter, GripVertical, LayoutDashboard, LayoutList, Loader2, Lock, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   useApiBoardColumns,
@@ -131,11 +131,13 @@ function DroppableColumn({ id, children }: { id: string; children: React.ReactNo
 function TaskCard({
   task,
   onOpen,
+  onMove,
   draggable,
   tagById,
 }: {
   task: ApiTask;
   onOpen: (task: ApiTask) => void;
+  onMove?: (task: ApiTask) => void;
   draggable: boolean;
   tagById: Map<number, { name: string; color: string }>;
 }) {
@@ -154,7 +156,19 @@ function TaskCard({
           </button>
         )}
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-foreground truncate">{task.title}</p>
+          <div className="flex items-start gap-1.5">
+            <p className="font-medium text-foreground truncate flex-1">{task.title}</p>
+            {onMove && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMove(task); }}
+                className="shrink-0 h-5 px-1.5 rounded-[3px] border border-border text-[9px] text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors inline-flex items-center gap-1"
+                title="Mover a otro sprint"
+              >
+                <ArrowRightLeft className="w-2.5 h-2.5" /> Mover
+              </button>
+            )}
+          </div>
           {task.description && <p className="mt-1 text-muted-foreground line-clamp-2">{task.description}</p>}
           {task.due_date && (
             <div className="mt-2 flex items-center gap-2 text-muted-foreground">
@@ -458,8 +472,17 @@ export function ProjectTasksWorkspace({
       return;
     }
 
-    if (!newTask.title.trim()) {
+    const trimmedTitle = newTask.title.trim();
+    if (!trimmedTitle) {
       toast.error('El titulo es obligatorio.');
+      return;
+    }
+
+    const isDuplicateTitle = (tasks ?? []).some(
+      (task) => task.title.trim().toLowerCase() === trimmedTitle.toLowerCase(),
+    );
+    if (isDuplicateTitle) {
+      toast.error('Ya existe una tarea con ese nombre en este proyecto.');
       return;
     }
 
@@ -474,7 +497,7 @@ export function ProjectTasksWorkspace({
       const created = await tasksService.create({
         project: projectId,
         board_column: boardColumn,
-        title: newTask.title.trim(),
+        title: trimmedTitle,
         description: newTask.description.trim() || undefined,
         start_date: newTask.start_date || undefined,
         due_date: newTask.due_date || undefined,
@@ -638,6 +661,13 @@ export function ProjectTasksWorkspace({
     }
   };
 
+  const startMoveTask = (taskId: number) => {
+    setPushingTaskId(taskId);
+    setPushSprintId(null);
+    setPushBoardId(null);
+    setPushColumnId(null);
+  };
+
   const handlePushTaskToSprint = async () => {
     if (!pushingTaskId || !pushSprintId) return;
     setSavingPush(true);
@@ -762,6 +792,10 @@ export function ProjectTasksWorkspace({
   );
 
   const selectedBoard = (boards ?? []).find((board) => board.id_board === selectedBoardId) ?? null;
+
+  const pushingTask = pushingTaskId != null ? (tasks ?? []).find((task) => task.id_task === pushingTaskId) ?? null : null;
+  // When moving a task that already belongs to a sprint, don't offer its current sprint as a destination.
+  const pushSprintOptions = (sprints ?? []).filter((s) => pushingTask?.sprint == null || s.id_sprint !== pushingTask.sprint);
 
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragId(null);
@@ -1070,12 +1104,7 @@ export function ProjectTasksWorkspace({
                     <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                       <button
                         type="button"
-                        onClick={() => {
-                          setPushingTaskId(task.id_task);
-                          setPushSprintId(null);
-                          setPushBoardId(null);
-                          setPushColumnId(null);
-                        }}
+                        onClick={() => startMoveTask(task.id_task)}
                         className="h-6 px-2 rounded-[3px] border border-dashed border-border text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors inline-flex items-center gap-1"
                       >
                         <Plus className="w-3 h-3" /> Mover
@@ -1245,6 +1274,7 @@ export function ProjectTasksWorkspace({
                                         key={task.id_task}
                                         task={task}
                                         onOpen={setSelectedTask}
+                                        onMove={canEditTasks ? (t) => startMoveTask(t.id_task) : undefined}
                                         draggable={canEditTasks}
                                         tagById={tagById}
                                       />
@@ -1271,12 +1301,13 @@ export function ProjectTasksWorkspace({
                           <tr className="border-b border-border bg-surface-secondary/50">
                             <th className="text-left px-3 py-2">Titulo</th>
                             <th className="text-left px-3 py-2">Tags</th>
+                            {canEditTasks && <th className="text-left px-3 py-2 w-[100px]">Sprint</th>}
                           </tr>
                         </thead>
                         <tbody>
                           {sprintTasks.length === 0 ? (
                             <tr>
-                              <td colSpan={2} className="px-3 py-6 text-center text-muted-foreground">Sin tareas en este sprint</td>
+                              <td colSpan={canEditTasks ? 3 : 2} className="px-3 py-6 text-center text-muted-foreground">Sin tareas en este sprint</td>
                             </tr>
                           ) : (
                             sprintTasks.map((task) => {
@@ -1311,6 +1342,18 @@ export function ProjectTasksWorkspace({
                                       )}
                                     </div>
                                   </td>
+                                  {canEditTasks && (
+                                    <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
+                                      <button
+                                        type="button"
+                                        onClick={() => startMoveTask(task.id_task)}
+                                        className="h-6 px-2 rounded-[3px] border border-dashed border-border text-[10px] text-muted-foreground hover:text-foreground hover:border-primary/50 transition-colors inline-flex items-center gap-1"
+                                        title="Mover a otro sprint"
+                                      >
+                                        <ArrowRightLeft className="w-3 h-3" /> Mover
+                                      </button>
+                                    </td>
+                                  )}
                                 </tr>
                               );
                             })
@@ -1674,8 +1717,12 @@ export function ProjectTasksWorkspace({
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-6">
           <div className="w-full max-w-sm rounded-[6px] border border-border bg-card p-5 space-y-3">
             <div>
-              <h2 className="text-[13px] font-semibold">Mover al sprint</h2>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Selecciona sprint y board. La tarea se colocara en la primera columna del board.</p>
+              <h2 className="text-[13px] font-semibold">{pushingTask?.sprint != null ? 'Mover a otro sprint' : 'Mover al sprint'}</h2>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                {pushingTask?.sprint != null
+                  ? `Actualmente en ${(sprints ?? []).find((s) => s.id_sprint === pushingTask.sprint)?.name ?? 'un sprint'}. Selecciona el sprint destino y board.`
+                  : 'Selecciona sprint y board. La tarea se colocara en la primera columna del board.'}
+              </p>
             </div>
             <select
               value={pushSprintId ?? ''}
@@ -1683,7 +1730,7 @@ export function ProjectTasksWorkspace({
               className="w-full h-8 rounded-[3px] border border-border bg-surface-secondary px-2 text-[11px]"
             >
               <option value="">Selecciona sprint</option>
-              {(sprints ?? []).map((s) => (
+              {pushSprintOptions.map((s) => (
                 <option key={s.id_sprint} value={s.id_sprint}>{s.name}</option>
               ))}
             </select>
