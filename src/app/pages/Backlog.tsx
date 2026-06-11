@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   Check, Filter, LayoutGrid, ListChecks, Loader2, Rocket, Search, X, Calendar,
@@ -54,6 +54,12 @@ export default function Backlog() {
     undefined,
     currentUserId ?? undefined,
   );
+
+  // Tags are per-project, so a tag id selected in one project becomes stale (and empties
+  // results) when the project context changes — clear the tag filter on any project change.
+  useEffect(() => {
+    setSelectedTagIds([]);
+  }, [kanbanProjectId, projectFilter]);
 
   const loading = loadingProjects || loadingTasks || loadingBoards || loadingColumns || (isAdmin ? false : loadingMemberships);
 
@@ -192,11 +198,12 @@ export default function Backlog() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [sprintTasks, sprintById, projectById]);
 
-  // tag options derived from visible tasks so the list stays relevant
+  // tag options derived from visible tasks (plus any currently-selected tag, so an active
+  // filter is never hidden from the list and can always be removed).
   const tagOptions = useMemo(() => {
     const ids = new Set(scopedTasks.flatMap((t) => t.tags));
-    return (tags ?? []).filter((t) => ids.has(t.id_tag));
-  }, [tags, scopedTasks]);
+    return (tags ?? []).filter((t) => ids.has(t.id_tag) || selectedTagIds.includes(t.id_tag));
+  }, [tags, scopedTasks, selectedTagIds]);
 
   const hasActiveFilters =
     projectFilter != null || priorityFilter != null || statusFilter !== 'all' || selectedTagIds.length > 0 || search.trim() !== '';
@@ -384,6 +391,23 @@ export default function Backlog() {
             </div>
           )}
         </div>
+
+        {/* Active tag filters — always visible & removable */}
+        {selectedTagIds.map((id) => {
+          const t = tagById.get(id);
+          return (
+            <span
+              key={`chip-${id}`}
+              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium"
+              style={{ borderColor: `${t?.color ?? '#56697f'}66`, backgroundColor: `${t?.color ?? '#56697f'}1a`, color: t?.color ?? '#56697f' }}
+            >
+              {t?.name ?? `#${id}`}
+              <button type="button" onClick={() => setSelectedTagIds((cur) => cur.filter((x) => x !== id))} className="opacity-70 hover:opacity-100" title="Quitar filtro">
+                <X className="w-2.5 h-2.5" />
+              </button>
+            </span>
+          );
+        })}
 
         {hasActiveFilters && (
           <button
@@ -573,7 +597,7 @@ function TaskTable({
                     <p className="text-[12px] font-medium text-foreground">{task.title}</p>
                     {task.completed_at && <span className="inline-flex items-center rounded-full bg-success/20 px-2 py-0.5 text-[9px] font-medium text-success">Completada</span>}
                   </div>
-                  {task.description && <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed line-clamp-1">{task.description}</p>}
+                  {task.description && <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed line-clamp-1 break-words">{task.description}</p>}
                 </td>
                 {!hideProject && (
                   <td className="px-4 py-3 text-[11px] text-muted-foreground">{projectById.get(task.project) ?? `#${task.project}`}</td>

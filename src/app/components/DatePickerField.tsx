@@ -38,6 +38,10 @@ export function DatePickerField({
     : placeholder;
 
   const isDateDisabled = (date: Date) => {
+    // Always allow the currently-selected value, even if it falls outside the bounds — otherwise
+    // a record whose saved date is now out of range (e.g. a sprint after a project rescheduling)
+    // becomes impossible to open/adjust.
+    if (selectedDate && format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')) return false;
     if (minDateValue && date < minDateValue) return true;
     if (maxDateValue && date > maxDateValue) return true;
     return false;

@@ -136,6 +136,7 @@ export interface ApiBoardColumn {
   name: string;
   order: number;
   is_final: boolean;
+  is_review: boolean;
   board: number;
 }
 

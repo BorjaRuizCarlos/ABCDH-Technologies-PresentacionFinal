@@ -25,11 +25,11 @@ import { ProgressBar } from '../components/ProgressBar';
 import { AssignResponsibleModal, type AssignCandidate } from '../components/AssignResponsibleModal';
 import { AddMemberModal } from '../components/AddMemberModal';
 import {
-  useApiBoards, useApiBoardColumns, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles, useApiSprints, useApiMilestones, useApiLeaderboard,
+  useApiBoards, useApiBoardColumns, useApiProjectMembers, useApiUsers, useApiTasks, useApiRoles, useApiSprints, useApiMilestones, useApiLeaderboard, useApiTags,
 } from '../hooks/useProjectData';
 import { Leaderboard } from '../components/Gamification';
 import { projectsService, tasksService, usersService } from '../../services';
-import type { ApiProject, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../../services';
+import type { ApiProject, ApiProjectMember, ApiTask, ApiTaskAssignment, ApiUserAccount } from '../../services';
 import { getProjectHealth, type ProjectHealth } from '../utils/projectHealth';
 import { buildBurndownSeries, parseStoryPoints } from '../utils/burndown';
 import { useAuth } from '../context/AuthContext';
@@ -186,7 +186,8 @@ export default function ProjectDetail() {
   }, [sprints]);
   // ── Tasks ─────────────────────────────────────────────────────────────────
   const { statuses, refetch: refetchTasks } = useApiTasks(selectedBoardId, projectId);
-  const { data: allProjectTasks } = useApiTasks(undefined, projectId);
+  const { data: allProjectTasks, refetch: refetchAllProjectTasks } = useApiTasks(undefined, projectId);
+  const { data: projectTags } = useApiTags(projectId);
 
   // ── Members + Users ───────────────────────────────────────────────────────
   const { data: members, loading: loadingMembers, refetch: refetchMembers } = useApiProjectMembers(projectId);
@@ -397,6 +398,16 @@ export default function ProjectDetail() {
       role: roleMap.get(m.role ?? 0) ?? 'Sin rol',
     })),
     [members, userMap, roleMap],
+  );
+  // Stakeholders can see tasks but must NOT be assignable to them.
+  const isStakeholderMember = (m: ApiProjectMember) =>
+    m.role === projectRoleIds.stakeholderId || isStakeholderSystemUser(memberUserMap.get(m.user) ?? null);
+  const assignableUsers = useMemo(
+    () => (members ?? [])
+      .filter((m) => !isStakeholderMember(m))
+      .map((m) => ({ id: m.user, name: userMap.get(m.user) ?? `Usuario #${m.user}` })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [members, userMap, memberUserMap, projectRoleIds.stakeholderId],
   );
   const handleAssign = async (userId: number) => {
     if (!canManageProject) {
@@ -610,6 +621,15 @@ export default function ProjectDetail() {
       ? normalizedInitialTaskId
       : null,
   );
+
+  const handleScrumPokerTasksUpdated = useCallback(() => {
+    refetchAllProjectTasks();
+  }, [refetchAllProjectTasks]);
+
+  // Refresh the full task list when entering Scrum Poker so newly created tasks always appear.
+  useEffect(() => {
+    if (activeTab === 'scrum-poker') refetchAllProjectTasks();
+  }, [activeTab, refetchAllProjectTasks]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -1330,10 +1350,7 @@ export default function ProjectDetail() {
             <ProjectTasksWorkspace
               projectId={projectId}
               userMap={userMap}
-              assignableUsers={(members ?? []).map((m) => ({
-                id: m.user,
-                name: userMap.get(m.user) ?? `Usuario #${m.user}`,
-              }))}
+              assignableUsers={assignableUsers}
               canCreateTasks={canManageTasks}
               canCreateBoards={canManageTasks}
               canEditTasks={canManageTasks}
@@ -1386,6 +1403,8 @@ export default function ProjectDetail() {
               sprints={sprints ?? []}
               userMap={userMap}
               canEdit={canManageTasks}
+              tags={projectTags ?? []}
+              onTasksUpdated={handleScrumPokerTasksUpdated}
             />
           </div>
         )}

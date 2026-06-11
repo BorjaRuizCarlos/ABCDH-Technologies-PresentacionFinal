@@ -177,11 +177,11 @@ export const tasksService = {
     return api.get<ApiBoardColumn[]>(url);
   },
 
-  createBoardColumn(payload: { board: number; name: string; order: number; is_final?: boolean }): Promise<ApiBoardColumn> {
+  createBoardColumn(payload: { board: number; name: string; order: number; is_final?: boolean; is_review?: boolean }): Promise<ApiBoardColumn> {
     return api.post<ApiBoardColumn>('/board-columns/', payload);
   },
 
-  updateBoardColumn(id: number, payload: { name?: string; order?: number; is_final?: boolean }): Promise<ApiBoardColumn> {
+  updateBoardColumn(id: number, payload: { name?: string; order?: number; is_final?: boolean; is_review?: boolean }): Promise<ApiBoardColumn> {
     return api.patch<ApiBoardColumn>(`/board-columns/${id}/`, payload);
   },
 
@@ -327,9 +327,11 @@ export const tasksService = {
   /** GET /api/subtasks/ — optionally filter by parent task */
   listSubtasks(parentTaskId?: number): Promise<ApiSubtask[]> {
     const url = parentTaskId ? `/subtasks/?parent_task=${parentTaskId}` : '/subtasks/';
-    return api.get<ApiSubtask[] | { results: ApiSubtask[] }>(url).then(
-      (res) => Array.isArray(res) ? res : ((res as { results?: ApiSubtask[] }).results ?? []),
-    );
+    return api.get<ApiSubtask[] | { results: ApiSubtask[] }>(url).then((res) => {
+      const list = Array.isArray(res) ? res : (res?.results ?? []);
+      // Enforce the parent filter client-side — the backend may ignore the query param.
+      return parentTaskId != null ? list.filter((s) => s.parent_task === parentTaskId) : list;
+    });
   },
 
   createSubtask(payload: { parent_task: number; title: string; description?: string; order?: number; is_completed?: boolean }): Promise<ApiSubtask> {

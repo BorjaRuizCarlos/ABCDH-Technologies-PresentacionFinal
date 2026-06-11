@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from 'react';
-import { Pencil, X } from 'lucide-react';
+import { Pencil, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { tasksService, ApiRequestError } from '../../services';
-import type { ApiTask, ApiSprint } from '../../services';
+import type { ApiTask, ApiSprint, ApiTag } from '../../services';
 
 const FIBONACCI = [1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
+type EstimationFilter = 'all' | 'estimated' | 'unestimated';
 
 // Turn a DRF error body ({ detail } or per-field arrays) into a readable line.
 function formatApiError(err: unknown, fallback: string): string {
@@ -27,13 +28,17 @@ interface ScrumPokerPanelProps {
   sprints: ApiSprint[];
   userMap: Map<number, string>;
   canEdit: boolean;
+  tags?: ApiTag[];
+  onTasksUpdated?: () => void;
 }
 
-export function ScrumPokerPanel({ tasks, sprints, userMap, canEdit }: ScrumPokerPanelProps) {
+export function ScrumPokerPanel({ tasks, sprints, userMap, canEdit, tags = [], onTasksUpdated }: ScrumPokerPanelProps) {
   const [editingTaskId, setEditingTaskId] = useState<number | null>(null);
   const [selectedValue, setSelectedValue] = useState<string>('');
   const [saving, setSaving] = useState(false);
   const [localTasks, setLocalTasks] = useState<ApiTask[] | null>(tasks);
+  const [estimationFilter, setEstimationFilter] = useState<EstimationFilter>('all');
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
 
   // Sync local copy when parent passes new tasks (e.g. after tab change or new task created)
   useEffect(() => {
@@ -43,6 +48,22 @@ export function ScrumPokerPanel({ tasks, sprints, userMap, canEdit }: ScrumPoker
   const sprintMap = useMemo(
     () => new Map(sprints.map((s) => [s.id_sprint, s.name])),
     [sprints],
+  );
+
+  const filteredTasks = useMemo(() => {
+    if (!localTasks) return null;
+    return localTasks.filter((task) => {
+      const hasEstimate = task.scrum_number != null && String(task.scrum_number).trim() !== '';
+      if (estimationFilter === 'estimated' && !hasEstimate) return false;
+      if (estimationFilter === 'unestimated' && hasEstimate) return false;
+      if (selectedTagIds.length > 0 && !selectedTagIds.every((id) => task.tags.includes(id))) return false;
+      return true;
+    });
+  }, [localTasks, estimationFilter, selectedTagIds]);
+
+  const unestimatedCount = useMemo(
+    () => (localTasks ?? []).filter((t) => t.scrum_number == null || String(t.scrum_number).trim() === '').length,
+    [localTasks],
   );
 
   const startEdit = (task: ApiTask) => {
@@ -66,6 +87,7 @@ export function ScrumPokerPanel({ tasks, sprints, userMap, canEdit }: ScrumPoker
       setLocalTasks((prev) => prev?.map((t) => (t.id_task === taskId ? { ...t, ...updated, scrum_number: nextValue } : t)) ?? null);
       setEditingTaskId(null);
       setSelectedValue('');
+      onTasksUpdated?.();
       toast.success('Story points actualizados');
     } catch (err) {
       // Surface the real reason — the backend often rejects updates to tasks in a
@@ -92,9 +114,61 @@ export function ScrumPokerPanel({ tasks, sprints, userMap, canEdit }: ScrumPoker
     );
   }
 
+  const visibleTasks = filteredTasks ?? [];
+
   return (
-    <div className="space-y-2">
-      {localTasks.map((task) => {
+    <div className="space-y-3">
+      {/* Filter bar */}
+      <div className="flex flex-wrap items-center gap-2 rounded-[4px] border border-border bg-surface-secondary/30 px-3 py-2">
+        <div className="inline-flex items-center rounded-[3px] border border-border p-0.5">
+          {([
+            { v: 'all', label: 'Todas' },
+            { v: 'unestimated', label: `Sin estimar${unestimatedCount > 0 ? ` (${unestimatedCount})` : ''}` },
+            { v: 'estimated', label: 'Estimadas' },
+          ] as const).map(({ v, label }) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setEstimationFilter(v)}
+              className={`px-2.5 py-1 text-[10px] font-medium rounded-[2px] transition-colors ${
+                estimationFilter === v ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tags.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1">
+            {tags.map((tag) => {
+              const active = selectedTagIds.includes(tag.id_tag);
+              return (
+                <button
+                  key={tag.id_tag}
+                  type="button"
+                  onClick={() => setSelectedTagIds((cur) => active ? cur.filter((id) => id !== tag.id_tag) : [...cur, tag.id_tag])}
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium transition-colors ${
+                    active ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color || '#56697f' }} />
+                  {tag.name}
+                  {active && <Check className="w-2.5 h-2.5" />}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <span className="ml-auto text-[10px] text-muted-foreground">{visibleTasks.length} tarea{visibleTasks.length === 1 ? '' : 's'}</span>
+      </div>
+
+      {visibleTasks.length === 0 ? (
+        <div className="py-8 text-center text-[12px] text-muted-foreground">No hay tareas que coincidan con los filtros.</div>
+      ) : (
+      <div className="space-y-2">
+      {visibleTasks.map((task) => {
         const isEditing = editingTaskId === task.id_task;
         const sprintName = task.sprint != null ? sprintMap.get(task.sprint) : null;
         const assignedName = task.assigned_to != null ? (userMap.get(task.assigned_to) ?? `#${task.assigned_to}`) : null;
@@ -205,6 +279,8 @@ export function ScrumPokerPanel({ tasks, sprints, userMap, canEdit }: ScrumPoker
           </div>
         );
       })}
+      </div>
+      )}
     </div>
   );
 }
